@@ -1,0 +1,222 @@
+[
+  {
+    "description": "보험",
+    "priority": 2,
+    "category_code": "INSURANCE_EXPENSE",
+    "conditions": [
+      { "column": "content", "match_type": "CONTAINS", "value": "보험" }
+    ]
+  },
+
+  {
+    "description": "영준 실비보험",
+    "priority": 1,
+    "category_code": "YOUNGJUN_INSURANCE",
+    "conditions": [
+      { "column": "content", "match_type": "EXACT", "value": "한화손해보험(주)" },
+      { "column": "transaction_amount", "match_type": "EQUALS", "value": "61530" }
+    ]
+  },
+  {  "description": "영준 보험",
+    "priority": 1,
+    "category_code": "YOUNGJUN_INSURANCE",
+    "conditions": [
+      { "column": "content", "match_type": "EXACT", "value": "양영준" },
+      { "column": "transaction_amount", "match_type": "EQUALS", "value": "41600" }
+    ]
+  },
+  {  "description": "영준 보험",
+    "priority": 1,
+    "category_code": "YOUNGJUN_INSURANCE",
+    "conditions": [
+      { "column": "content", "match_type": "EXACT", "value": "양영준" },
+      { "column": "transaction_amount", "match_type": "EQUALS", "value": "57400" }
+    ]
+  },
+  {  "description": "영준 보험",
+    "priority": 1,
+    "category_code": "YOUNGJUN_INSURANCE",
+    "conditions": [
+      { "column": "content", "match_type": "EXACT", "value": "현대" },
+      { "column": "transaction_amount", "match_type": "EQUALS", "value": "36500" }
+    ]
+  },
+
+  {  "description": "세아 보험",
+    "priority": 1,
+    "category_code": "SEA_INSURANCE",
+    "conditions": [
+      { "column": "content", "match_type": "EXACT", "value": "현대" },
+      { "column": "transaction_amount", "match_type": "EQUALS", "value": "21230" }
+    ]
+  },
+
+  {  "description": "혜인 보험",
+    "priority": 1,
+    "category_code": "HYEIN_INSURANCE",
+    "conditions": [
+      { "column": "content", "match_type": "EXACT", "value": "DB손" },
+      { "column": "transaction_amount", "match_type": "EQUALS", "value": "104430" }
+    ]
+  },
+
+
+  {  "description": "대중교통",
+    "priority": 1,
+    "category_code": "PUBLIC_TRANSPORT",
+    "conditions": [
+      { "column": "content", "match_type": "CONTAINS", "value": "고속도로　통행료" }
+    ]
+  },
+
+  {  "description": "대중교통",
+    "priority": 1,
+    "category_code": "PUBLIC_TRANSPORT",
+    "conditions": [
+      { "column": "content", "match_type": "CONTAINS", "value": "티머니" }
+    ]
+  },
+
+  {  "description": "대중교통",
+    "priority": 1,
+    "category_code": "PUBLIC_TRANSPORT",
+    "conditions": [
+      { "column": "content", "match_type": "CONTAINS", "value": "지하철" }
+    ]
+  },
+
+  {  "description": "대중교통",
+    "priority": 1,
+    "category_code": "PUBLIC_TRANSPORT",
+    "conditions": [
+      { "column": "content", "match_type": "CONTAINS", "value": "마을버스" }
+    ]
+  },
+
+  {  "description": "상수도",
+    "priority": 1,
+    "category_code": "WATER_BILL",
+    "conditions": [
+      { "column": "content", "match_type": "EXACT", "value": "하남시상하수도" }
+    ]
+  },
+
+  {  "description": "핸드폰 사용료",
+    "priority": 1,
+    "category_code": "MOBILE_BILL",
+    "conditions": [
+      { "column": "content", "match_type": "EXACT", "value": "KT통신요금" }
+    ]
+  },
+
+  {  "description": "장보기",
+    "priority": 1,
+    "category_code": "GROCERIES",
+    "conditions": [
+      { "column": "content", "match_type": "CONTAINS", "value": "이마트" }
+    ]
+  },
+  {  "description": "장보기",
+    "priority": 1,
+    "category_code": "GROCERIES",
+    "conditions": [
+      { "column": "content", "match_type": "CONTAINS", "value": "홈플러스" }
+    ]
+  },
+
+  {  "description": "가스비",
+    "priority": 1,
+    "category_code": "GAS_BILL",
+    "conditions": [
+      { "column": "content", "match_type": "EXACT", "value": "코원에너지서비스(주)" }
+    ]
+  },
+
+  {  "description": "주유비",
+    "priority": 1,
+    "category_code": "FUEL_EXPENSE",
+    "conditions": [
+      { "column": "content", "match_type": "CONTAINS", "value": "주유소" }
+    ]
+  },
+
+  {  "description": "고정비",
+    "priority": 1,
+    "category_code": "FIXED_EXPENSE",
+    "conditions": [
+      { "column": "content", "match_type": "EXACT", "value": "현대카드(주)" },
+      { "column": "transaction_amount", "match_type": "EQUALS", "value": "7890" }
+    ]
+  },
+
+  {  "description": "가족 모임 회비",
+    "priority": 1,
+    "category_code": "FAMILY_GATHERING",
+    "conditions": [
+      { "column": "content", "match_type": "EXACT", "value": "양영준" },
+      { "column": "transaction_amount", "match_type": "EQUALS", "value": "100000" }
+    ]
+  },
+
+  {  "description": "쿠팡 와우 회원 사용료",
+    "priority": 1,
+    "category_code": "COUPANG_MEMBERSHIP",
+    "conditions": [
+      { "column": "content", "match_type": "EXACT", "value": "쿠팡(쿠페이)" },
+      { "column": "transaction_amount", "match_type": "EQUALS", "value": "7890" }
+    ]
+  },
+
+  {  "description": "쿠팡 이츠 사용료",
+    "priority": 1,
+    "category_code": "DELIVERY_FOOD",
+    "conditions": [
+      { "column": "content", "match_type": "EXACT", "value": "쿠팡이츠" }
+    ]
+  },
+
+  {
+    "description": "편의점",
+    "priority": 1,
+    "category_code": "CONVENIENCE_STORE",
+    "conditions": [
+      { "column": "content", "match_type": "EXACT", "value": "GS25" }
+    ]
+  },
+
+  {
+    "description": "편의점",
+    "priority": 1,
+    "category_code": "CONVENIENCE_STORE",
+    "conditions": [
+      { "column": "content", "match_type": "EXACT", "value": "세븐일레븐" }
+    ]
+  },
+
+  {
+    "description": "편의점",
+    "priority": 1,
+    "category_code": "CONVENIENCE_STORE",
+    "conditions": [
+      { "column": "content", "match_type": "EXACT", "value": "씨유" }
+    ]
+  },
+
+  {
+    "description": "편의점",
+    "priority": 1,
+    "category_code": "CONVENIENCE_STORE",
+    "conditions": [
+      { "column": "content", "match_type": "EXACT", "value": "(CU)" }
+    ]
+  },
+
+  {
+    "description": "통신비(TV, 인터넷)",
+    "priority": 1,
+    "category_code": "COMMUNICATION_EXPENSE",
+    "conditions": [
+      { "column": "content", "match_type": "EXACT", "value": "0800KT통신요금" }
+    ]
+  }
+]
