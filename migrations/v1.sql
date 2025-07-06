@@ -11,13 +11,7 @@ CREATE TABLE IF NOT EXISTS "category" (
     FOREIGN KEY (parent_id) REFERENCES "category" (id)
 );
 
-CREATE TABLE IF NOT EXISTS "investment" (
-    id INTEGER PRIMARY KEY,
-    category_id INTEGER NOT NULL,
-    investment_name TEXT,
-    description TEXT,
-    FOREIGN KEY (category_id) REFERENCES "category" (id)
-);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_category_code_type ON "category" (category_code, category_type);
 
 CREATE TABLE IF NOT EXISTS "transaction_party" (
     id INTEGER PRIMARY KEY,
@@ -42,21 +36,30 @@ CREATE TABLE IF NOT EXISTS "rule_condition" (
     FOREIGN KEY (rule_id) REFERENCES "rule" (id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS "accounts" (
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE,          -- 계좌 이름 (예: 하나은행 입출금, 신한카드)
+    account_type TEXT NOT NULL,         -- 타입 (예: BANK_ACCOUNT, CREDIT_CARD, CASH, STOCK_ASSET)
+    balance INTEGER NOT NULL DEFAULT 0, -- 현재 잔액 (부채는 음수로 저장 가능)
+    is_asset BOOLEAN NOT NULL           -- 자산(True)인지 부채(False)인지 구분
+);
+
+
+
 CREATE TABLE IF NOT EXISTS "transaction" (
     id INTEGER PRIMARY KEY,
     "type" TEXT NOT NULL,
+    account_id INTEGER NOT NULL,
     transaction_type TEXT NOT NULL,
     transaction_provider TEXT NOT NULL,
     category_id INTEGER NOT NULL,
     transaction_party_id INTEGER NOT NULL,
-    investment_id INTEGER,
     transaction_date TEXT NOT NULL,
     transaction_amount INTEGER,
-
     description TEXT,
     content TEXT,
     FOREIGN KEY (category_id) REFERENCES "category" (id),
-    FOREIGN KEY (investment_id) REFERENCES "investment" (id) ON DELETE SET NULL,
+    FOREIGN KEY (account_id) REFERENCES "accounts" (id),
     FOREIGN KEY (transaction_party_id) REFERENCES "transaction_party" (id)
 );
 
@@ -69,4 +72,13 @@ CREATE TABLE IF NOT EXISTS "card_transaction" (
 );
 
 CREATE INDEX IF NOT EXISTS idx_card_approval_number ON "card_transaction" (card_approval_number);
+
+
+CREATE TABLE IF NOT EXISTS "bank_transaction" (
+    id INTEGER PRIMARY KEY,
+    unique_hash TEXT NOT NULL UNIQUE, -- 중복 입력을 막기 위한 고유 해시값
+    branch TEXT,                      -- '거래점' 컬럼
+    balance_amount INTEGER,
+    FOREIGN KEY (id) REFERENCES "transaction" (id) ON DELETE CASCADE
+);
 

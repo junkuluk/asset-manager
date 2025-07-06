@@ -1,7 +1,7 @@
 import sqlite3
 import pandas as pd
 import re
-
+import config
 
 # -------------------------------------------------------------------
 # 1. 개별 조건 평가 함수들 (작고, 독립적이며, 테스트하기 쉬움)
@@ -48,7 +48,7 @@ CONDITION_EVALUATORS = {
 # -------------------------------------------------------------------
 # 3. 간소화된 메인 규칙 엔진 함수
 # -------------------------------------------------------------------
-def run_rule_engine(df, default_category_id, db_path='asset_data.db'):
+def run_rule_engine(df, default_category_id, db_path=config.DB_PATH):
     if df.empty:
         return df
 
@@ -100,7 +100,7 @@ def run_rule_engine(df, default_category_id, db_path='asset_data.db'):
     return df
 
 
-def run_engine_and_update_db(db_path='asset_data.db'):
+def run_engine_and_update_db(db_path=config.DB_PATH):
     """
     DB의 모든 거래내역을 불러와 규칙 엔진을 실행하고, 결과를 다시 DB에 업데이트합니다.
     """
@@ -144,3 +144,32 @@ def run_engine_and_update_db(db_path='asset_data.db'):
         return 0
     finally:
         conn.close()
+
+
+def identify_transfers(df, db_path=config.DB_PATH):
+
+    conn = sqlite3.connect(db_path)
+    rules = pd.read_sql_query("SELECT * FROM transfer_rule ORDER BY priority ASC", conn)
+
+    final_mask = pd.Series(False, index=df.index)
+
+    for _, rule in rules.iterrows():
+        conditions = pd.read_sql_query(f"SELECT * FROM transfer_rule_condition WHERE rule_id = {rule['id']}", conn)
+
+        rule_applies_mask = pd.Series(True, index=df.index)
+        for _, cond in conditions.iterrows():
+            column, match_type, value = cond['column_to_check'], cond['match_type'], cond['value']
+
+            eval_func = CONDITION_EVALUATORS.get(match_type)
+            if eval_func:
+                current_mask = eval_func(df[column], value)
+                rule_applies_mask &= current_mask
+            else:
+                rule_applies_mask = pd.Series(False, index=df.index)
+                break
+
+        # 여러 규칙 중 하나라도 만족하면 True (OR 연산)
+        final_mask |= rule_applies_mask
+
+    conn.close()
+    return final_mask

@@ -1,6 +1,10 @@
 import sqlite3
 import json
-def seed_initial_categories(db_path='asset_data.db'):
+import config
+from core.db_manager import rebuild_category_paths
+
+
+def seed_initial_categories(db_path=config.DB_PATH):
 
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
@@ -36,9 +40,15 @@ def seed_initial_categories(db_path='asset_data.db'):
         cursor.execute(insert_level_top, ('INCOME', 'INCOME', '수입', '3', 1))
         income_id = cursor.lastrowid
 
+        cursor.execute(insert_level_top, ('TRANSFER', 'TRANSFER', '내부 이체', '4', 1))
+        transfer_id = cursor.lastrowid
+
         # --- Level 2: 지출 하위 ---
         cursor.execute(insert_level,
                        ('UNCATEGORIZED', 'EXPENSE', expense_id, '비분류 지출', '1-2', 2))
+
+        cursor.execute(insert_level,
+                       ('UNCATEGORIZED', 'INCOME', income_id, '비분류 수입', '1-2', 2))
 
         cursor.execute(insert_level,
                        ('FIXED_EXPENSE', 'EXPENSE', expense_id, '고정 지출', '1-2', 2))
@@ -47,6 +57,8 @@ def seed_initial_categories(db_path='asset_data.db'):
         cursor.execute(insert_level,
                        ('VARIABLE_EXPENSE', 'EXPENSE', expense_id, '변동 지출', '1-2', 2))
         variable_expense_id = cursor.lastrowid
+
+        cursor.execute(insert_level, ('CARD_PAYMENT', 'TRANSFER', transfer_id, '카드대금 납부', '4-temp', 2))
 
         # --- Level 3: 고정 지출 하위 ---
         level3_fixed_parents = {
@@ -186,6 +198,8 @@ def seed_initial_categories(db_path='asset_data.db'):
 
         conn.commit()
         print("초기 카테고리 데이터 삽입 완료.")
+        rebuild_category_paths()
+        print("초기 카테고리 경로 작업 완료.")
 
     except Exception as e:
         print(f"초기 데이터 삽입 중 오류 발생: {e}")
@@ -194,7 +208,7 @@ def seed_initial_categories(db_path='asset_data.db'):
         conn.close()
 
 
-def seed_initial_parties(db_path='asset_data.db'):
+def seed_initial_parties(db_path=config.DB_PATH):
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
 
@@ -220,7 +234,7 @@ def seed_initial_parties(db_path='asset_data.db'):
         conn.close()
 
 
-def seed_initial_rules(db_path='asset_data.db', rules_path='initial_rules.json'):
+def seed_initial_rules(db_path=config.DB_PATH, rules_path=config.RULES_PATH):
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
     cursor.execute("SELECT COUNT(*) FROM \"rule\"")
@@ -253,3 +267,59 @@ def seed_initial_rules(db_path='asset_data.db', rules_path='initial_rules.json')
         conn.rollback()
     finally:
         conn.close()
+
+def seed_initial_accounts(db_path=config.DB_PATH):
+
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+
+    # 등록할 기본 계좌 목록
+    # (계좌 이름, 계좌 타입, 자산 여부(True/False))
+    default_accounts = [
+        ('신한은행-110-227-963599', 'BANK_ACCOUNT', True),
+        ('신한카드', 'CREDIT_CARD', False),
+        ('국민카드', 'CREDIT_CARD', False),
+        ('현대카드', 'CREDIT_CARD', False),
+        ('현금', 'CASH', True),
+        ('미지정 거래처', 'UNCATEGORIZED', True) # 카드값 등 내부 이체용 가상 계좌
+    ]
+
+    for name, acc_type, is_asset in default_accounts:
+        # 이미 같은 이름의 계좌가 있는지 확인
+        cursor.execute("SELECT id FROM accounts WHERE name = ?", (name,))
+        if cursor.fetchone() is None:
+            # 없으면 추가
+            cursor.execute(
+                "INSERT INTO accounts (name, account_type, is_asset, balance) VALUES (?, ?, ?, ?)",
+                (name, acc_type, is_asset, 0) # 초기 잔액은 0으로 설정
+            )
+            print(f"기본 계좌 '{name}'이(가) 추가되었습니다.")
+
+    conn.commit()
+    conn.close()
+
+def seed_initial_transfer_rules(db_path=config.DB_PATH, rules_path='initial_transfer_rules.json'):
+
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    cursor.execute("SELECT COUNT(*) FROM \"transfer_rule\"")
+    if cursor.fetchone()[0] > 0:
+        conn.close()
+        return
+
+    print("JSON 파일에서 초기 이체 규칙을 로드하여 삽입합니다...")
+    try:
+        with open(rules_path, 'r', encoding='utf-8') as f:
+            rules_from_json = json.load(f)
+
+        for rule_data in rules_from_json:
+            cursor.execute("INSERT INTO \"transfer_rule\" (description, priority) VALUES (?, ?)",
+                         (rule_data.get('description'), rule_data.get('priority', 0)))
+            rule_id = cursor.lastrowid
+            for cond in rule_data.get('conditions', []):
+                cursor.execute("INSERT INTO \"transfer_rule_condition\" (rule_id, column_to_check, match_type, value) VALUES (?, ?, ?, ?)",
+                             (rule_id, cond.get('column'), cond.get('match_type'), cond.get('value')))
+        conn.commit()
+    finally:
+        conn.close()
+

@@ -1,0 +1,237 @@
+from datetime import date
+
+import pandas as pd
+import streamlit as st
+from st_aggrid import AgGrid, GridUpdateMode, JsCode
+
+from core.db_manager import update_transaction_category, update_transaction_description, update_transaction_party, \
+    change_expense_to_transfer
+from core.db_queries import load_data_from_db, get_all_categories, get_all_parties, get_all_accounts, \
+    get_bank_expense_transactions
+from core.ui_utils import apply_common_styles
+
+import calendar
+
+apply_common_styles()
+st.set_page_config(layout="wide", page_title="거래내역 상세 수정")
+
+st.title("📝 거래 내역 상세 수정")
+st.markdown("""
+- **카테고리/메모/거래처 변경**: 해당 셀을 **더블클릭**하여 수정 후 Enter를 누르세요.
+ <span style='background-color: #fff9e6; border: 1px solid #e0e0e0; border-radius: 3px; padding: 2px 5px;'>노란 배경</span>의 셀만 수정 가능합니다.
+""", unsafe_allow_html=True)
+
+st.markdown("---")
+
+def load_and_set_data():
+    selected_year = st.session_state.editor_year
+    selected_month = st.session_state.editor_month
+
+    _, last_day = calendar.monthrange(selected_year, selected_month)
+
+    start_date = date(selected_year, selected_month, 1)
+    end_date = date(selected_year, selected_month, last_day)
+
+    st.session_state.editor_df = load_data_from_db(
+        start_date,
+        end_date,
+        st.session_state.editor_selected_types
+    )
+    # 비교를 위한 원본 데이터 복사본도 세션 상태에 저장
+    st.session_state.original_editor_df = st.session_state.editor_df.copy()
+
+
+today = date.today()
+
+if 'editor_year' not in st.session_state:
+     #st.session_state.editor_start_date = date.today().replace(month=1, day=1)
+     st.session_state.editor_year = today.year
+if 'editor_month' not in st.session_state:
+     #st.session_state.editor_end_date = date.today()
+     st.session_state.editor_month = today.month
+if 'editor_selected_types' not in st.session_state:
+    st.session_state.editor_selected_types = ['EXPENSE', 'INCOME', 'INVEST']
+if 'editor_df' not in st.session_state:
+     load_and_set_data()
+
+
+# --- 날짜 필터 UI ---
+st.markdown("##### 조회 기간 선택")
+col1, col2, col3 = st.columns([1, 1, 2])
+with col1:
+    st.selectbox("연도", range(today.year, 2019, -1), key="editor_year", on_change=load_and_set_data)
+with col2:
+    st.selectbox("월", range(1, 13), key="editor_month", on_change=load_and_set_data)
+with col3:
+    st.multiselect(
+        "거래 구분 필터",
+        options=['EXPENSE', 'INCOME', 'INVEST'],
+        key="editor_selected_types",
+        on_change=load_and_set_data
+    )
+
+# --- 데이터 로드 ---
+expense_categories = get_all_categories(category_type='EXPENSE')
+income_categories = get_all_categories(category_type='INCOME')
+invest_categories = get_all_categories(category_type='INVEST')
+
+all_editable_categories = {**expense_categories, **income_categories, **invest_categories}
+category_name_to_id_map = {v: k for k, v in all_editable_categories.items()}
+
+party_map = get_all_parties()
+party_desc_to_id_map = {v: k for k, v in party_map.items()}
+
+
+if st.session_state.editor_df.empty:
+    st.warning("선택된 기간에 해당하는 데이터가 없습니다.")
+else:
+    # 1. JsCode를 사용하여 동적 드롭다운 목록 생성
+    jscode = JsCode(f"""
+    function(params) {{
+        // 현재 행의 type 값 (EXPENSE, INCOME 등)을 가져옴
+        var transactionType = params.data.type;
+
+        // type 값에 따라 다른 카테고리 목록을 반환
+        if (transactionType === 'EXPENSE') {{
+            return {{'values': {list(expense_categories.values())} }};
+        }} else if (transactionType === 'INCOME') {{
+            return {{'values': {list(income_categories.values())} }};
+        }} else if (transactionType === 'INVEST') {{
+            return {{'values': {list(invest_categories.values())} }};
+        }} else {{
+            return {{'values': [] }};
+        }}
+    }}
+    """)
+
+    editable_cell_style = {'backgroundColor': '#fff9e6'}
+
+    # --- AgGrid 설정 ---
+    gridOptions = {
+        "columnDefs": [
+            {"field": "id", "headerName": "ID", "width": 80, "editable": False},
+            {"field": "type", "headerName": "구분", "width": 100, "editable": False},
+            {"field": "transaction_date", "headerName": "거래일시", "width": 180, "sort": 'desc'},
+            {"field": "content", "headerName": "내용", "width": 250, "editable": False},
+            {"field": "party_description", "headerName": "거래처", "width": 150, "cellEditor": 'agSelectCellEditor',
+             "cellEditorParams": {'values': list(party_map.values())}, "cellStyle": editable_cell_style},
+            {"field": "category_name", "headerName": "카테고리", "width": 150,
+                "cellEditor": 'agSelectCellEditor',
+                "cellEditorParams": jscode,
+                "cellStyle": editable_cell_style},
+            {"field": "transaction_amount", "headerName": "금액", "width": 120, "valueFormatter": "x.toLocaleString()",
+             "type": "numericColumn", "editable": False},
+            {"field": "description", "headerName": "메모", "width": 300, "cellStyle": editable_cell_style},
+        ],
+        "defaultColDef": {"sortable": True, "resizable": True, "editable": True},
+        "pagination": True, "paginationPageSize": 20,
+        "rowHeight": 32
+    }
+
+    custom_css = {
+        # .ag-cell에 직접 스타일을 적용하여 우선순위를 높임
+        ".ag-cell": {"font-size": "15px !important;"},
+    }
+
+    # --- AgGrid 실행 ---
+    grid_response = AgGrid(
+        st.session_state.editor_df,
+        gridOptions=gridOptions,
+        custom_css=custom_css,
+        key='transaction_grid_final_v2',  # 키 변경으로 완전 새로고침 유도
+        update_mode=GridUpdateMode.MODEL_CHANGED,
+        allow_unsafe_jscode=True, height=700, theme='streamlit'
+    )
+
+    # --- 변경사항 DB 업데이트 로직 ---
+    updated_df = grid_response['data']
+    if not st.session_state.original_editor_df.equals(updated_df):
+        try:
+            comparison_df = pd.merge(st.session_state.original_editor_df, updated_df, on='id', suffixes=('_orig', '_new'))
+
+            # fillna('')를 통해 None 값 비교 오류 방지
+            cat_changed = comparison_df['category_name_orig'].fillna('') != comparison_df['category_name_new'].fillna(
+                '')
+            party_changed = comparison_df['party_description_orig'].fillna('') != comparison_df[
+                'party_description_new'].fillna('')
+            desc_changed = comparison_df['description_orig'].fillna('') != comparison_df['description_new'].fillna('')
+
+            changed_rows = comparison_df[cat_changed | party_changed | desc_changed]
+
+            if not changed_rows.empty:
+                for _, row in changed_rows.iterrows():
+                    transaction_id = row['id']
+
+                    if row['category_name_orig'] != row['category_name_new']:
+                        new_category_id = category_name_to_id_map.get(row['category_name_new'])
+                        if new_category_id: update_transaction_category(transaction_id, new_category_id)
+
+                    if row['party_description_orig'] != row['party_description_new']:
+                        new_party_id = party_desc_to_id_map.get(row['party_description_new'])
+                        if new_party_id: update_transaction_party(transaction_id, new_party_id)
+
+                    if row['description_orig'] != row['description_new']:
+                        update_transaction_description(transaction_id, row['description_new'])
+
+                st.toast("변경사항이 저장되었습니다.")
+                load_and_set_data()  # DB 변경 후 세션 상태를 최신으로 다시 로드
+                st.rerun()
+
+        except Exception as e:
+            st.error(f"데이터 업데이트 중 오류 발생: {e}")
+
+# --- AgGrid 아래에 이 섹션을 추가합니다 ---
+st.markdown("---")
+
+with st.expander("🔁 거래 타입 수동 변경 (지출 → 이체)"):
+    st.write("은행 출금 내역 중 '지출'로 잘못 분류된 카드값 납부 내역을 '이체'로 변경합니다.")
+
+    selected_year = st.session_state.editor_year
+    selected_month = st.session_state.editor_month
+
+    _, last_day = calendar.monthrange(selected_year, selected_month)
+
+    start_date = date(selected_year, selected_month, 1)
+    end_date = date(selected_year, selected_month, last_day)
+    # 1. 위에서 선택된 날짜 기준으로 변경할 후보 목록을 가져옴
+    candidate_df = get_bank_expense_transactions(
+        start_date,
+        end_date
+    )
+
+    if not candidate_df.empty:
+        # 2. 사용자에게 보여줄 선택지 목록 생성 (날짜 / 내용 / 금액)
+        candidate_df['display'] = candidate_df.apply(
+            lambda row: f"{row['transaction_date']} / {row['content']} / {row['transaction_amount']:,}원",
+            axis=1
+        )
+        options_map = pd.Series(candidate_df.id.values, index=candidate_df.display).to_dict()
+
+        with st.form("change_type_form"):
+            # 3. 드롭다운으로 변경할 거래 선택
+            selected_display = st.selectbox(
+                "이체로 변경할 거래를 선택하세요:",
+                options=options_map.keys()
+            )
+
+            # 카드 계좌 목록만 불러옴
+            card_accounts_map = get_all_accounts(account_type='CREDIT_CARD')
+            paid_card_name = st.selectbox(
+                "어떤 카드의 대금을 납부했나요?",
+                options=list(card_accounts_map.keys())
+            )
+
+            submitted = st.form_submit_button("이체로 변경 실행")
+            if submitted:
+                # 4. 선택된 항목의 실제 transaction ID를 가져옴
+                transaction_id_to_change = options_map[selected_display]
+                card_account_id = card_accounts_map[paid_card_name]
+
+                success, message = change_expense_to_transfer(transaction_id_to_change, card_account_id)
+                if success:
+                    st.success(message)
+                    st.rerun()  # 성공 시 전체 페이지 새로고침
+                else:
+                    st.error(message)
+    else:
+        st.info("선택된 기간에 이체로 변경할 '은행 지출' 내역이 없습니다.")

@@ -1,0 +1,28 @@
+
+[
+  {
+    "description": "신한카드 카드대금",
+    "priority": 1,
+    "conditions": [
+      { "column": "적요", "match_type": "EXACT", "value": "카드결" },
+      { "column": "내용", "match_type": "EXACT", "value": "신한카드" }
+    ]
+  },
+  {
+    "description": "국민카드 카드대금",
+    "priority": 1,
+    "conditions": [
+      { "column": "적요", "match_type": "EXACT", "value": "FB카드" },
+      { "column": "내용", "match_type": "EXACT", "value": "ＫＢ카드출금" }
+    ]
+  },
+
+  {
+    "description": "현대카드 카드대금",
+    "priority": 1,
+    "conditions": [
+      { "column": "적요", "match_type": "EXACT", "value": "FB카드" },
+      { "column": "내용", "match_type": "EXACT", "value": "현대카드(주)" }
+    ]
+  }
+]
