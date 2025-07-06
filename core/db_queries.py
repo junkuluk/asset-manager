@@ -302,3 +302,44 @@ def get_all_accounts_df(db_path=config.DB_PATH):
         except Exception as e:
             print(f"전체 계좌 목록 로드 오류: {e}")
             return pd.DataFrame()
+
+
+def get_monthly_summary_for_dashboard(db_path=config.DB_PATH):
+    """종합 대시보드를 위한 월별 수입, 지출, 기말 자산 데이터를 집계합니다."""
+    with sqlite3.connect(db_path) as conn:
+        # 1. 월별 수입, 지출, 투자액 집계
+        flow_query = """
+                     SELECT strftime('%Y-%m', transaction_date)                                as "연월", \
+                            SUM(CASE WHEN type = 'INCOME' THEN transaction_amount ELSE 0 END)  as "수입", \
+                            SUM(CASE WHEN type = 'EXPENSE' THEN transaction_amount ELSE 0 END) as "지출", \
+                            SUM(CASE WHEN type = 'INVEST' THEN transaction_amount ELSE 0 END)  as "투자"
+                     FROM "transaction"
+                     GROUP BY "연월" \
+                     """
+        flow_df = pd.read_sql_query(flow_query, conn)
+
+        # 2. 월별 기말 자산 잔액 계산 (가장 어려운 부분)
+        # 모든 잔액 변경 이력을 가져와 월별로 누적 합계를 계산
+        history_query = """
+                        SELECT strftime('%Y-%m', change_date) as "연월", change_amount
+                        FROM account_balance_history
+                                 JOIN accounts ON accounts.id = account_balance_history.account_id
+                        WHERE accounts.is_asset = 1 -- 자산 계좌의 변동만 추적 \
+                        """
+        history_df = pd.read_sql_query(history_query, conn)
+        if not history_df.empty:
+            monthly_change = history_df.groupby('연월')['change_amount'].sum()
+            asset_balance_df = monthly_change.cumsum().reset_index(name="총자산")
+        else:
+            asset_balance_df = pd.DataFrame(columns=['연월', '총자산'])
+
+        # 3. 두 데이터프레임을 '연월' 기준으로 병합
+        if not flow_df.empty and not asset_balance_df.empty:
+            summary_df = pd.merge(flow_df, asset_balance_df, on="연월", how="outer").fillna(0)
+        elif not flow_df.empty:
+            summary_df = flow_df
+        else:
+            summary_df = asset_balance_df
+
+        summary_df = summary_df.sort_values("연월").fillna(method='ffill')  # 빈 달의 자산은 전월 자산으로 채움
+        return summary_df

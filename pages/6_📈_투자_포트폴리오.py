@@ -1,71 +1,80 @@
-import sqlite3
-
-import pandas as pd
+# pages/5_📈_투자_포트폴리오.py
 import streamlit as st
-from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
-
+import pandas as pd
 import config
+import sqlite3
+import plotly.express as px
 from core.db_manager import update_balance_and_log
-from core.db_queries import get_investment_accounts
+from core.db_queries import get_investment_accounts, get_balance_history
 from core.ui_utils import apply_common_styles
 
 apply_common_styles()
-
 st.set_page_config(layout="wide", page_title="투자 포트폴리오")
-st.title("📈 투자 포트폴리오 관리")
-st.markdown("`현재 잔액` 셀을 더블클릭하여 현재가치를 업데이트하고 `Enter`를 누르세요.")
+st.title("📈 투자 포트폴리오")
 st.markdown("---")
 
-# 세션 상태를 이용해 데이터 관리
-if 'investment_df' not in st.session_state:
-    st.session_state.investment_df = get_investment_accounts()
-if 'original_investment_df' not in st.session_state:
-    st.session_state.original_investment_df = st.session_state.investment_df.copy()
+# 1. 투자 자산 목록 조회
+investment_df = get_investment_accounts()
 
-if st.session_state.investment_df.empty:
+if investment_df.empty:
     st.warning("등록된 투자 자산이 없습니다. '기준정보 관리'에서 먼저 계좌를 추가해주세요.")
 else:
-    # AgGrid 설정
-    gb = GridOptionsBuilder.from_dataframe(st.session_state.investment_df)
-    gb.configure_column("balance", header_name="현재 잔액 (가치)", editable=True,
-                        type=["numericColumn", "customNumericFormat"], precision=0)
-    # ... (다른 컬럼 설정) ...
-    gridOptions = gb.build()
+    col1, col2 = st.columns([1, 1.5])  # 화면을 두 영역으로 분할
 
-    grid_response = AgGrid(
-        st.session_state.investment_df,
-        gridOptions=gridOptions,
-        update_mode=GridUpdateMode.MODEL_CHANGED,
-        height=400, theme='streamlit',
-        key='investment_grid'
-    )
+    with col1:
+        st.subheader("보유 자산 목록")
+        # 사용자가 선택할 수 있도록 라디오 버튼으로 자산 목록 표시
+        selected_asset_name = st.radio(
+            "상세 정보를 볼 자산을 선택하세요:",
+            options=investment_df['name'],
+            key="selected_asset"
+        )
+        selected_asset_id = investment_df[investment_df['name'] == selected_asset_name]['id'].iloc[0]
 
-    updated_df = grid_response['data']
-    if not st.session_state.original_investment_df.equals(updated_df):
-        # 변경된 내용 찾기
-        comparison_df = pd.merge(st.session_state.original_investment_df, updated_df, on='id',
-                                 suffixes=('_orig', '_new'), how="inner", validate="one_to_one")
-        changed_rows = comparison_df[comparison_df['balance_orig'] != comparison_df['balance_new']]
+        # 선택된 자산의 현재 가치 표시
+        current_balance = investment_df[investment_df['name'] == selected_asset_name]['balance'].iloc[0]
+        st.metric(label=f"'{selected_asset_name}' 현재 가치", value=f"{current_balance:,.0f} 원")
 
-        if not changed_rows.empty:
-            # DB 연결을 한번만 열어서 모든 변경사항을 처리
-            with sqlite3.connect(config.DB_PATH) as conn:
-                try:
-                    for _, row in changed_rows.iterrows():
-                        account_id = row['id']
-                        change_amount = row['balance_new'] - row['balance_orig']
-                        reason = "투자 포트폴리오 페이지에서 사용자 수동 가치 업데이트"
+        # --- 자산 가치 수동 업데이트 폼 ---
+        with st.form("update_balance_form"):
+            st.write("##### 현재 가치 업데이트")
+            new_balance = st.number_input("새로운 현재 가치 (원)", min_value=0, value=int(current_balance), step=10000)
+            reason = st.text_input("업데이트 사유 (예: 6월 말 기준 평가)", value="사용자 수동 업데이트")
 
-                        # 최종 통합 함수 호출
-                        update_balance_and_log(account_id, change_amount, reason, conn)
+            submitted = st.form_submit_button("가치 업데이트 실행")
+            if submitted:
+                change_amount = new_balance - current_balance
+                if change_amount != 0:
+                    with sqlite3.connect(config.DB_PATH) as conn:
+                        update_balance_and_log(selected_asset_id, change_amount, reason, conn)
+                    st.success("자산 가치가 성공적으로 업데이트되었습니다.")
+                    st.rerun()
+                else:
+                    st.info("변동된 금액이 없습니다.")
 
-                    conn.commit()  # 모든 변경사항을 한번에 커밋
-                    st.toast("자산 가치가 업데이트되었습니다.")
-                except Exception as e:
-                    conn.rollback()
-                    st.error(f"업데이트 중 오류 발생: {e}")
+    with col2:
+        st.subheader(f"'{selected_asset_name}' 변동 이력")
 
-            # 데이터 다시 로드 및 페이지 새로고침
-            st.session_state.investment_df = get_investment_accounts()
-            st.session_state.original_investment_df = st.session_state.investment_df.copy()
-            st.rerun()
+        # 2. 선택된 자산의 잔액 변경 히스토리 조회
+        history_df = get_balance_history(selected_asset_id)
+
+        if not history_df.empty:
+            # 3. 히스토리 차트 시각화
+            history_df['change_date'] = pd.to_datetime(history_df['change_date'])
+            fig = px.line(
+                history_df,
+                x='change_date',
+                y='new_balance',
+                title=f"'{selected_asset_name}' 가치 변동 그래프",
+                labels={'change_date': '날짜', 'new_balance': '자산 가치'},
+                markers=True
+            )
+            fig.update_layout(yaxis_title="자산 가치 (원)", xaxis_title="날짜")
+            st.plotly_chart(fig, use_container_width=True)
+
+            # 4. 히스토리 상세 내역 테이블
+            st.write("상세 이력")
+            st.dataframe(history_df[['change_date', 'reason', 'change_amount', 'new_balance']],
+                         use_container_width=True)
+        else:
+            st.info("해당 자산의 변동 이력이 없습니다.")
