@@ -94,9 +94,6 @@ def run_rule_engine(df, default_category_id, db_path=config.DB_PATH):
         df.loc[final_mask, 'category_id'] = target_category_id
         unclassified_mask &= ~final_mask
 
-        print(df)
-
-
     return df
 
 

@@ -147,8 +147,8 @@ def insert_bank_transactions_from_excel(filepath, db_path=config.DB_PATH):
             bank_account_id = get_account_id_by_name('신한은행-110-227-963599')
 
             # 2. 안전하게 ID 조회
-            card_payment_cat_id = \
-            (cursor.execute("SELECT id FROM category WHERE category_code = 'CARD_PAYMENT'").fetchone() or [None])[0]
+            transfer_cat_id = \
+            (cursor.execute("SELECT id FROM category WHERE category_code = 'TRANSFER'").fetchone() or [None])[0]
             default_expense_cat_id = (cursor.execute(
                 "SELECT id FROM category WHERE category_code = 'UNCATEGORIZED' AND category_type ='EXPENSE'").fetchone() or [
                                           None])[0]
@@ -156,7 +156,7 @@ def insert_bank_transactions_from_excel(filepath, db_path=config.DB_PATH):
                 "SELECT id FROM category WHERE category_code = 'UNCATEGORIZED' AND category_type ='INCOME'").fetchone() or [
                                          None])[0]
 
-            if not all([bank_account_id, card_payment_cat_id, default_expense_cat_id, default_income_cat_id]):
+            if not all([bank_account_id, transfer_cat_id, default_expense_cat_id, default_income_cat_id]):
                 print("오류: 필수 계좌 또는 카테고리 ID를 DB에서 찾을 수 없습니다.")
                 return 0, 0
 
@@ -180,10 +180,12 @@ def insert_bank_transactions_from_excel(filepath, db_path=config.DB_PATH):
             df['type'] = np.where(df['amount'] > 0, 'INCOME', 'EXPENSE')
             df['category_id'] = np.where(df['type'] == 'INCOME', default_income_cat_id, default_expense_cat_id)
             df['amount'] = df['amount'].abs().astype(int)
+            df['content'] = df['내용'].astype(str)
+            df.rename(columns={'amount': 'transaction_amount'}, inplace=True)
 
             is_transfer_mask = identify_transfers(df)
             df.loc[is_transfer_mask, 'type'] = 'TRANSFER'
-            df.loc[is_transfer_mask, 'category_id'] = card_payment_cat_id
+            df.loc[is_transfer_mask, 'category_id'] = transfer_cat_id
 
             # 카테고리 분류 규칙 엔진 실행 (TRANSFER가 아닌 행에 대해서만)
             expense_income_mask = (df['type'] != 'TRANSFER')
@@ -204,7 +206,7 @@ def insert_bank_transactions_from_excel(filepath, db_path=config.DB_PATH):
                                    """, (
                                        row['type'], 'BANK', 'SHINHAN_BANK', row['category_id'], 1,
                                        pd.to_datetime(f"{row['거래일자']} {row['거래시간']}").strftime('%Y-%m-%d %H:%M:%S'),
-                                       row['amount'], str(row.get('적요', '')) + ' / ' + str(row.get('내용', '')),
+                                       row['transaction_amount'], str(row.get('적요', '')) + ' / ' + str(row.get('내용', '')),
                                        bank_account_id
                                    ))
                     transaction_id = cursor.lastrowid
@@ -213,9 +215,9 @@ def insert_bank_transactions_from_excel(filepath, db_path=config.DB_PATH):
                         (transaction_id, row['unique_hash'], row.get('거래점'), row.get('잔액')))
                     # 수입은 더하고, 지출/이체는 뺌
                     if row['type'] == 'INCOME':
-                        net_change += row['amount']
+                        net_change += row['transaction_amount']
                     else:  # EXPENSE, TRANSFER
-                        net_change -= row['amount']
+                        net_change -= row['transaction_amount']
 
                     inserted_count += 1
 
