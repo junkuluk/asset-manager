@@ -281,7 +281,7 @@ def get_balance_history(account_id, db_path=config.DB_PATH):
 def get_investment_accounts(db_path=config.DB_PATH):
     with sqlite3.connect(db_path) as conn:
         # STOCK_ASSET, FUND, CRYPTO 등 투자와 관련된 타입만 선택
-        query = "SELECT * FROM accounts WHERE account_type IN ('STOCK_ASSET', 'FUND', 'CRYPTO', 'REAL_ESTATE')"
+        query = "SELECT * FROM accounts WHERE account_type IN ('STOCK_ASSET', 'SAVING', 'CRYPTO', 'REAL_ESTATE')"
         return pd.read_sql_query(query, conn)
 
 def get_all_accounts_df(db_path=config.DB_PATH):
@@ -343,3 +343,57 @@ def get_monthly_summary_for_dashboard(db_path=config.DB_PATH):
 
         summary_df = summary_df.sort_values("연월").fillna(method='ffill')  # 빈 달의 자산은 전월 자산으로 채움
         return summary_df
+
+
+def get_annual_summary_data(year: int, db_path=config.DB_PATH):
+    """
+    연간 요약 대시보드를 위한 데이터를 반환합니다. (수정된 최종 버전)
+    """
+    with sqlite3.connect(db_path) as conn:
+        try:
+            # 1. 모든 카테고리 정보를 미리 로드 (경로 생성을 위한 지도)
+            all_categories_df = pd.read_sql_query("SELECT id, parent_id, description FROM category", conn)
+            all_categories_df['parent_id'] = pd.to_numeric(all_categories_df['parent_id'], errors='coerce').fillna(
+                0).astype(int)
+            id_to_desc_map = all_categories_df.set_index('id')['description'].to_dict()
+            id_to_parent_map = all_categories_df.set_index('id')['parent_id'].to_dict()
+
+            # 2. 지정된 연도의 거래 내역만 가져옴
+            query = """
+                    SELECT strftime('%Y/%m', transaction_date) as "연월", \
+                           transaction_amount                  as "금액", \
+                           category_id
+                    FROM "transaction"
+                    WHERE type IN ('INCOME', 'EXPENSE', 'INVEST')
+                      AND strftime('%Y', transaction_date) = ? \
+                    """
+            df = pd.read_sql_query(query, conn, params=(str(year),))
+            if df.empty:
+                return pd.DataFrame()
+
+            # 3. Python에서 각 거래의 카테고리 경로(L1, L2)를 직접 생성
+            l1_list = []
+            l2_list = []
+            for cat_id in df['category_id']:
+                path_names = []
+                temp_id = cat_id
+                while temp_id != 0 and temp_id in id_to_parent_map:
+                    path_names.insert(0, id_to_desc_map.get(temp_id, ""))
+                    temp_id = id_to_parent_map.get(temp_id, 0)
+
+                # 경로 길이에 따라 L1, L2 할당
+                l1 = path_names[0] if len(path_names) > 0 else '미분류'
+                l2 = path_names[1] if len(path_names) > 1 else l1  # L2가 없으면 L1 이름 사용
+
+                l1_list.append(l1)
+                l2_list.append(l2)
+
+            # 4. 최종 DataFrame에 '구분'(L1)과 '항목'(L2) 컬럼 추가
+            df['구분'] = l1_list
+            df['항목'] = l2_list
+
+            return df[['구분', '항목', '연월', '금액']]
+
+        except Exception as e:
+            print(f"연간 요약 데이터 로드 오류: {e}")
+            return pd.DataFrame()

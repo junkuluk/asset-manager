@@ -146,11 +146,17 @@ def run_engine_and_update_db(db_path=config.DB_PATH):
 def identify_transfers(df, db_path=config.DB_PATH):
 
     conn = sqlite3.connect(db_path)
-    rules = pd.read_sql_query("SELECT * FROM transfer_rule ORDER BY priority ASC", conn)
+    rules = pd.read_sql_query("SELECT * FROM transfer_rule ORDER BY priority", conn)
 
-    final_mask = pd.Series(False, index=df.index)
+    final_linked_ids = pd.Series(0, index=df.index)
+
+    unidentified_mask = pd.Series(True, index=df.index)
 
     for _, rule in rules.iterrows():
+        if not unidentified_mask.any():
+            break
+
+        linked_account_id = rule['linked_account_id']
         conditions = pd.read_sql_query(f"SELECT * FROM transfer_rule_condition WHERE rule_id = {rule['id']}", conn)
 
         rule_applies_mask = pd.Series(True, index=df.index)
@@ -165,8 +171,13 @@ def identify_transfers(df, db_path=config.DB_PATH):
                 rule_applies_mask = pd.Series(False, index=df.index)
                 break
 
-        # 여러 규칙 중 하나라도 만족하면 True (OR 연산)
-        final_mask |= rule_applies_mask
+        # "아직 판별되지 않았으면서" "이번 규칙 조건을 모두 만족하는" 행만 선택
+        mask_to_apply = rule_applies_mask & unidentified_mask
+        # 해당하는 행이 있다면, 최종 결과에 연결 계좌 ID를 할당
+        if mask_to_apply.any():
+            final_linked_ids.loc[mask_to_apply] = linked_account_id
+            # 방금 판별된 행들을 다음 규칙의 대상에서 제외
+            unidentified_mask &= ~mask_to_apply
 
     conn.close()
-    return final_mask
+    return final_linked_ids

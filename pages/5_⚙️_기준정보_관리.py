@@ -5,7 +5,7 @@ from st_aggrid import GridOptionsBuilder, AgGrid, JsCode
 
 import config
 from core.db_manager import add_new_party, add_new_category, rebuild_category_paths, update_balance_and_log, \
-    add_new_account
+    add_new_account, reclassify_all_transfers, recategorize_uncategorized
 from core.db_queries import get_all_parties_df, get_all_categories, get_all_categories_with_hierarchy, get_all_accounts, \
     get_balance_history, get_all_accounts_df
 from core.ui_utils import apply_common_styles
@@ -192,3 +192,19 @@ with st.expander("🧰 데이터 보정 도구"):
         with st.spinner("경로를 재계산하는 중입니다..."):
             updated_count, message = rebuild_category_paths()
         st.success(f"작업 완료: {message} ({updated_count}개 행 업데이트)")
+
+st.markdown("---")
+st.subheader("⚙️ 데이터 일괄 처리 도구")
+
+with st.expander("규칙 엔진 전체 재적용"):
+    st.info("이 기능은 전체 거래 내역을 대상으로 규칙을 다시 실행합니다. 시간이 다소 걸릴 수 있습니다.")
+
+    if st.button("은행 거래 '이체' 규칙 재적용"):
+        with st.spinner("모든 은행 지출 내역을 확인 중입니다..."):
+            message = reclassify_all_transfers()
+            st.success(message)
+
+    if st.button("'미분류' 거래 카테고리 재적용"):
+        with st.spinner("미분류 거래에 대해 카테고리 규칙을 실행 중입니다..."):
+            message = recategorize_uncategorized()
+            st.success(message)

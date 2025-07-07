@@ -131,6 +131,7 @@ if not grid_source_df.empty:
     max_depth = int(grid_source_df['depth'].max())
     level_cols = [f'L{i}' for i in range(1, max_depth + 1)]
 
+    grid_source_df[level_cols] = grid_source_df[level_cols].fillna('')
     # 2. GridOptions 딕셔너리 직접 생성
     gridOptions = {
         "columnDefs": [
@@ -142,7 +143,7 @@ if not grid_source_df.empty:
             # aggFunc: 그룹핑 및 피벗 시, 이 컬럼의 값을 합산합니다.
             {
                 "field": "금액", "aggFunc": 'sum',
-                "valueFormatter": "x.toLocaleString() + ' 원'",
+                 "valueFormatter": "x > 0 ? x.toLocaleString() + ' 원' : ''",
             },
         ],
         "defaultColDef": { "width": 130, "sortable": True, "resizable": True },

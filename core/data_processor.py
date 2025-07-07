@@ -160,6 +160,7 @@ def insert_bank_transactions_from_excel(filepath, db_path=config.DB_PATH):
                 print("오류: 필수 계좌 또는 카테고리 ID를 DB에서 찾을 수 없습니다.")
                 return 0, 0
 
+            df.dropna(subset=['거래일자', '거래시간'], inplace=True)
             date_str = pd.to_datetime(df['거래일자']).dt.strftime('%Y-%m-%d')
             time_str = df['거래시간'].astype(str)
             out_amount_str = df['출금'].fillna(0).astype(int).astype(str)
@@ -177,15 +178,22 @@ def insert_bank_transactions_from_excel(filepath, db_path=config.DB_PATH):
 
             # 3. 명확한 순서로 타입 및 카테고리 ID 할당
             df['amount'] = df['입금'].fillna(0) - df['출금'].fillna(0)
-            df['type'] = np.where(df['amount'] > 0, 'INCOME', 'EXPENSE')
-            df['category_id'] = np.where(df['type'] == 'INCOME', default_income_cat_id, default_expense_cat_id)
-            df['amount'] = df['amount'].abs().astype(int)
+            df['transaction_amount'] = df['amount'].abs().astype(int)
             df['content'] = df['내용'].astype(str)
-            df.rename(columns={'amount': 'transaction_amount'}, inplace=True)
 
-            is_transfer_mask = identify_transfers(df)
+            # 이체 판별 엔진 실행: linked_account_id의 Series를 반환
+            linked_account_id_series = identify_transfers(df, db_path)
+            is_transfer_mask = (linked_account_id_series != 0) & (linked_account_id_series.notna())
+
+            # 타입 및 카테고리 ID 설정
+            df['type'] = np.where(df['amount'] > 0, 'INCOME', 'EXPENSE')
             df.loc[is_transfer_mask, 'type'] = 'TRANSFER'
+
+            df['category_id'] = np.where(df['type'] == 'INCOME', default_income_cat_id, default_expense_cat_id)
             df.loc[is_transfer_mask, 'category_id'] = transfer_cat_id
+
+            df['linked_account_id'] = linked_account_id_series
+
 
             # 카테고리 분류 규칙 엔진 실행 (TRANSFER가 아닌 행에 대해서만)
             expense_income_mask = (df['type'] != 'TRANSFER')
@@ -195,36 +203,38 @@ def insert_bank_transactions_from_excel(filepath, db_path=config.DB_PATH):
                 df.update(categorized_subset)
 
             inserted_count = 0
-            net_change = 0
 
             for _, row in df.iterrows():
                     cursor.execute("""
                                    INSERT INTO "transaction" (type, transaction_type, transaction_provider, category_id,
                                                               transaction_party_id, transaction_date, transaction_amount,
-                                                              content, account_id)
-                                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                                              content, account_id, linked_account_id)
+                                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?,?)
                                    """, (
                                        row['type'], 'BANK', 'SHINHAN_BANK', row['category_id'], 1,
                                        pd.to_datetime(f"{row['거래일자']} {row['거래시간']}").strftime('%Y-%m-%d %H:%M:%S'),
                                        row['transaction_amount'], str(row.get('적요', '')) + ' / ' + str(row.get('내용', '')),
-                                       bank_account_id
+                                       bank_account_id,
+                                       None if pd.isna(row['linked_account_id']) or row[
+                                           'linked_account_id'] == 0 else int(row['linked_account_id'])
                                    ))
                     transaction_id = cursor.lastrowid
                     cursor.execute(
                         "INSERT INTO \"bank_transaction\" (id, unique_hash, branch, balance_amount) VALUES (?, ?, ?, ?)",
                         (transaction_id, row['unique_hash'], row.get('거래점'), row.get('잔액')))
-                    # 수입은 더하고, 지출/이체는 뺌
+
+                    # 잔액 업데이트
+                    amount = row['transaction_amount']
+                    reason = f"거래 ID {transaction_id}: {row['content']}"
                     if row['type'] == 'INCOME':
-                        net_change += row['transaction_amount']
-                    else:  # EXPENSE, TRANSFER
-                        net_change -= row['transaction_amount']
+                        update_balance_and_log(bank_account_id, amount, reason, conn)
+                    elif row['type'] == 'EXPENSE':
+                        update_balance_and_log(bank_account_id, -amount, reason, conn)
+                    elif row['type'] == 'TRANSFER':
+                        update_balance_and_log(bank_account_id, -amount, f"이체 출금: {reason}", conn)
+                        update_balance_and_log(int(row['linked_account_id']), amount, f"이체 입금: {reason}", conn)
 
                     inserted_count += 1
-
-            # --- for 루프가 끝난 후, 최종 잔액 업데이트 ---
-            if inserted_count > 0:
-                reason = f"은행 엑셀 파일 업로드: {os.path.basename(filepath.name)}"
-                update_balance_and_log(bank_account_id, net_change, reason, conn)
 
             conn.commit()
             return inserted_count, skipped_count

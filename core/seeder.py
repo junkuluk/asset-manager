@@ -276,22 +276,30 @@ def seed_initial_accounts(db_path=config.DB_PATH):
     # 등록할 기본 계좌 목록
     # (계좌 이름, 계좌 타입, 자산 여부(True/False))
     default_accounts = [
-        ('신한은행-110-227-963599', 'BANK_ACCOUNT', True),
-        ('신한카드', 'CREDIT_CARD', False),
-        ('국민카드', 'CREDIT_CARD', False),
-        ('현대카드', 'CREDIT_CARD', False),
-        ('현금', 'CASH', True),
-        ('미지정 거래처', 'UNCATEGORIZED', True) # 카드값 등 내부 이체용 가상 계좌
+        ('신한은행-110-227-963599', 'BANK_ACCOUNT', True, False),
+        ('신한카드', 'CREDIT_CARD', False, False),
+        ('국민카드', 'CREDIT_CARD', False, False),
+        ('현대카드', 'CREDIT_CARD', False, False),
+        ('현금', 'CASH', True, False),
+        ('미지정_거래처', 'UNCATEGORIZED', True, False),
+        ('세아적금', 'SAVING', True, True),
+        ('혜인적금', 'SAVING', True, True),
+        ('영준해외주식', 'STOCK_ASSET', True, True),
+        ('영준국내주식', 'STOCK_ASSET', True, True),
+        ('혜인국내주식', 'STOCK_ASSET', True, True),
+        ('코인원', 'CRYPTO', True, True),
+        ('일산집', 'REAL_ESTATE', True, True),
+        ('전세금', 'REAL_ESTATE', True, False),
     ]
 
-    for name, acc_type, is_asset in default_accounts:
+    for name, acc_type, is_asset, is_invest in default_accounts:
         # 이미 같은 이름의 계좌가 있는지 확인
         cursor.execute("SELECT id FROM accounts WHERE name = ?", (name,))
         if cursor.fetchone() is None:
             # 없으면 추가
             cursor.execute(
-                "INSERT INTO accounts (name, account_type, is_asset, balance) VALUES (?, ?, ?, ?)",
-                (name, acc_type, is_asset, 0) # 초기 잔액은 0으로 설정
+                "INSERT INTO accounts (name, account_type, is_asset, balance, is_investment) VALUES (?, ?, ?, ?, ?)",
+                (name, acc_type, is_asset, 0, is_invest) # 초기 잔액은 0으로 설정
             )
             print(f"기본 계좌 '{name}'이(가) 추가되었습니다.")
 
@@ -309,12 +317,19 @@ def seed_initial_transfer_rules(db_path=config.DB_PATH, rules_path='initial_tran
 
     print("JSON 파일에서 초기 이체 규칙을 로드하여 삽입합니다...")
     try:
+        cursor.execute("SELECT id, name FROM accounts")
+        accounts_map = {name: id for id, name in cursor.fetchall()}
+
         with open(rules_path, 'r', encoding='utf-8') as f:
             rules_from_json = json.load(f)
 
         for rule_data in rules_from_json:
-            cursor.execute("INSERT INTO \"transfer_rule\" (description, priority) VALUES (?, ?)",
-                         (rule_data.get('description'), rule_data.get('priority', 0)))
+            linked_account_name = rule_data.get('linked_account_name')
+            linked_account_id = accounts_map.get(linked_account_name)
+            if not linked_account_id: continue  # 연결 계좌가 없으면 건너뜀
+
+            cursor.execute("INSERT INTO \"transfer_rule\" (description, priority, linked_account_id) VALUES (?, ?, ?)",
+                           (rule_data.get('description'), rule_data.get('priority', 0), linked_account_id))
             rule_id = cursor.lastrowid
             for cond in rule_data.get('conditions', []):
                 cursor.execute("INSERT INTO \"transfer_rule_condition\" (rule_id, column_to_check, match_type, value) VALUES (?, ?, ?, ?)",

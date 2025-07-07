@@ -50,6 +50,7 @@ CREATE TABLE IF NOT EXISTS "transaction" (
     id INTEGER PRIMARY KEY,
     "type" TEXT NOT NULL,
     account_id INTEGER NOT NULL,
+    linked_account_id INTEGER,
     transaction_type TEXT NOT NULL,
     transaction_provider TEXT NOT NULL,
     category_id INTEGER NOT NULL,

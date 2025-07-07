@@ -5,6 +5,7 @@ from datetime import datetime
 import pandas as pd
 
 import config
+from analysis import run_rule_engine, identify_transfers
 
 LATEST_DB_VERSION = 3
 SUCCESS_MSG = "성공적으로 추가되었습니다."
@@ -44,7 +45,7 @@ def run_migrations(db_path=config.DB_PATH, migrations_path='migrations'):
 def update_transaction_category(transaction_id, new_category_id, db_path=config.DB_PATH):
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
-    cursor.execute("UPDATE \"transaction\" SET category_id = ? WHERE id = ?", (new_category_id, transaction_id))
+    cursor.execute("UPDATE \"transaction\" SET category_id = ?, is_manual_category = 1 WHERE id = ?", (new_category_id, transaction_id))
     conn.commit()
     conn.close()
 
@@ -189,26 +190,35 @@ def reclassify_expense(transaction_id, linked_account_id, db_path=config.DB_PATH
                 return False, "거래 또는 대상 계좌 정보를 찾을 수 없습니다."
 
             amount, current_type = trans_result
-            linked_account_type = linked_account_result[0]
+            linked_account_type, is_investment = linked_account_result
 
             if current_type != 'EXPENSE':
                 return False, f"'{current_type}' 타입의 거래는 '이체'로 변경할 수 없습니다."
 
-            # 2. 거래 타입을 'TRANSFER'로, 카테고리를 'TRANSFER'로 업데이트
-            cursor.execute("SELECT id FROM category WHERE category_code = 'TRANSFER'")
-            new_category_id = cursor.fetchone()[0]
+            # 2. 연결 계좌의 타입에 따라 새로운 거래 타입과 카테고리 결정
+            if is_investment:
+                new_type = 'INVEST'
+                # '주식' 카테고리 ID를 찾음 (seeder에 STOCKS 코드가 있다고 가정)
+                cursor.execute("SELECT id FROM category WHERE category_code = 'INVESTMENT'")
+                new_category_id = cursor.fetchone()[0]
+            else:  # 카드 계좌 등
+                new_type = 'TRANSFER'
+                cursor.execute("SELECT id FROM category WHERE category_code = 'TRANSFER'")
+                new_category_id = cursor.fetchone()[0]
+
+            # 3. 거래 내역 업데이트
             cursor.execute(
-                "UPDATE \"transaction\" SET type = ?, category_id = ?, account_id = ? WHERE id = ?",
-                ('TRANSFER', new_category_id, int(linked_account_id), int(transaction_id))
+                "UPDATE \"transaction\" SET type = ?, category_id = ?, linked_account_id = ? WHERE id = ?",
+                (new_type, new_category_id, int(linked_account_id), int(transaction_id))
             )
 
-            # 3. 카드 계좌의 부채(balance)를 거래 금액만큼 차감
-            cursor.execute("UPDATE accounts SET balance = balance + ? WHERE id = ?", (amount, linked_account_id))
+            reason = f"거래 ID {transaction_id}: '{new_type}'(으)로 재분류"
+            update_balance_and_log(int(linked_account_id), amount, reason, conn)
 
             # 4. 은행 계좌의 잔액은 변경할 필요 없음 (이미 출금 시 반영됨)
 
             conn.commit()
-            return True, f"ID {transaction_id}가 '이체'로 성공적으로 변경되었습니다."
+            return True, f"ID {transaction_id}가 '{new_type}'(으)로 성공적으로 재분류되었습니다."
         except Exception as e:
             conn.rollback()
             return False, f"작업 중 오류 발생: {e}"
@@ -240,3 +250,67 @@ def add_new_account(name, account_type, is_asset, initial_balance, db_path=confi
         except Exception as e:
             conn.rollback()
             return False, f"오류 발생: {e}"
+
+
+def reclassify_all_transfers(db_path=config.DB_PATH):
+    """은행 지출 내역 전체를 대상으로 이체 규칙을 다시 적용합니다."""
+    with sqlite3.connect(db_path) as conn:
+        df = pd.read_sql_query("SELECT * FROM \"transaction\" WHERE transaction_type = 'BANK' AND type = 'EXPENSE'",
+                               conn)
+        if df.empty: return "재분류할 은행 지출 내역이 없습니다."
+
+        # 1. 규칙 엔진이 필요로 하는 '적요', '내용' 컬럼을 'content'에서 다시 분리
+        #    ' / '가 없는 경우를 대비해 예외 처리
+        if 'content' in df.columns:
+            split_content = df['content'].str.split(' / ', n=1, expand=True)
+            df['적요'] = split_content[0]
+            # 내용 컬럼이 없는 경우(split 결과가 1개 컬럼일 때)를 대비
+            if split_content.shape[1] > 1:
+                df['내용'] = split_content[1]
+            else:
+                df['내용'] = ''
+        # ------------------------------------
+
+        # 엔진 실행
+        linked_account_id_series = identify_transfers(df, db_path)
+        is_transfer_mask = (linked_account_id_series != 0) & (linked_account_id_series.notna())
+
+        # 변경 대상 ID와 연결 계좌 ID 추출
+        df_to_update = df[is_transfer_mask].copy()
+        df_to_update['linked_account_id'] = linked_account_id_series[is_transfer_mask]
+
+        card_payment_cat_id = conn.execute("SELECT id FROM category WHERE category_code = 'CARD_PAYMENT'").fetchone()[0]
+
+        # DB 업데이트
+        update_data = [(card_payment_cat_id, int(row['linked_account_id']), int(row['id'])) for _, row in
+                       df_to_update.iterrows()]
+        conn.executemany(
+            "UPDATE \"transaction\" SET type = 'TRANSFER', category_id = ?, linked_account_id = ? WHERE id = ?",
+            update_data)
+
+        return f"총 {len(df_to_update)}건의 거래를 '이체'로 재분류했습니다."
+
+
+def recategorize_uncategorized(db_path=config.DB_PATH):
+    """'미분류'로 되어 있는 모든 거래에 대해 카테고리 규칙을 다시 적용합니다."""
+    with sqlite3.connect(db_path) as conn:
+        # 수동으로 카테고리가 지정되지 않은, 미분류 거래만 가져옴
+        uncategorized_df = pd.read_sql_query("""
+                                             SELECT *
+                                             FROM "transaction"
+                                             WHERE category_id IN
+                                                   (SELECT id FROM category WHERE category_code = 'UNCATEGORIZED')
+                                               AND is_manual_category = 0 -- 수동 수정 제외
+                                             """, conn)
+
+        if uncategorized_df.empty: return "카테고리를 재분류할 대상이 없습니다."
+
+        # 규칙 엔진 실행
+        default_cat_id = uncategorized_df['category_id'].iloc[0]  # 임의의 미분류 ID
+        categorized_df = run_rule_engine(uncategorized_df, default_cat_id, db_path)
+
+        # 변경된 부분만 업데이트
+        update_data = [(int(row['category_id']), int(row['id'])) for _, row in categorized_df.iterrows()]
+        conn.executemany("UPDATE \"transaction\" SET category_id = ? WHERE id = ?", update_data)
+
+        return f"총 {len(categorized_df)}건의 거래에 카테고리 규칙을 재적용했습니다."
