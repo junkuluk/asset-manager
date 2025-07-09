@@ -1,4 +1,5 @@
 import sqlite3
+import streamlit as st
 import pandas as pd
 import re
 import config
@@ -52,12 +53,13 @@ def run_rule_engine(df, default_category_id, db_path=config.DB_PATH):
     if df.empty:
         return df
 
-    conn = sqlite3.connect(db_path)
-    rules = pd.read_sql_query("SELECT * FROM rule ORDER BY priority ", conn)
+    #conn = sqlite3.connect(db_path)
+    conn = st.connection("supabase", type="sql")
+    rules = conn.query("SELECT * FROM rule ORDER BY priority ")
 
     conditions_map = {}
     for rule_id in rules['id']:
-        conditions_map[rule_id] = pd.read_sql_query(f"SELECT * FROM rule_condition WHERE rule_id = {rule_id}", conn)
+        conditions_map[rule_id] = conn.query(f"SELECT * FROM rule_condition WHERE rule_id = {rule_id}")
     conn.close()
 
     if 'category_id' not in df.columns:
@@ -102,11 +104,12 @@ def run_engine_and_update_db(db_path=config.DB_PATH):
     DB의 모든 거래내역을 불러와 규칙 엔진을 실행하고, 결과를 다시 DB에 업데이트합니다.
     """
     print("DB 전체 재분류를 시작합니다...")
-    conn = sqlite3.connect(db_path)
+    #conn = sqlite3.connect(db_path)
+    conn = st.connection("supabase", type="sql")
 
     # 업데이트할 대상은 '미분류'이거나, 사용자가 수동으로 바꾸지 않은 거래들
     # 여기서는 모든 거래를 대상으로 하겠습니다.
-    df = pd.read_sql_query("SELECT * FROM \"transaction\"", conn)
+    df = conn.query("SELECT * FROM \"transaction\"")
 
     if df.empty:
         print("재분류할 데이터가 없습니다.")
@@ -145,8 +148,9 @@ def run_engine_and_update_db(db_path=config.DB_PATH):
 
 def identify_transfers(df, db_path=config.DB_PATH):
 
-    conn = sqlite3.connect(db_path)
-    rules = pd.read_sql_query("SELECT * FROM transfer_rule ORDER BY priority", conn)
+    #conn = sqlite3.connect(db_path)
+    conn = st.connection("supabase", type="sql")
+    rules = conn.query("SELECT * FROM transfer_rule ORDER BY priority")
 
     final_linked_ids = pd.Series(0, index=df.index)
 
@@ -157,7 +161,7 @@ def identify_transfers(df, db_path=config.DB_PATH):
             break
 
         linked_account_id = rule['linked_account_id']
-        conditions = pd.read_sql_query(f"SELECT * FROM transfer_rule_condition WHERE rule_id = {rule['id']}", conn)
+        conditions = conn.query(f"SELECT * FROM transfer_rule_condition WHERE rule_id = {rule['id']}")
 
         rule_applies_mask = pd.Series(True, index=df.index)
         for _, cond in conditions.iterrows():

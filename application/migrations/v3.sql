@@ -1,16 +1,16 @@
 CREATE TABLE IF NOT EXISTS "account_balance_history" (
-    id INTEGER PRIMARY KEY,
-    account_id INTEGER NOT NULL,
-    change_date TEXT NOT NULL,
-    previous_balance INTEGER NOT NULL,
-    change_amount INTEGER NOT NULL,
-    new_balance INTEGER NOT NULL,
-    reason TEXT, -- 조정 사유 (예: 초기 잔액 설정)
-    FOREIGN KEY (account_id) REFERENCES "accounts" (id) ON DELETE CASCADE
+    id SERIAL PRIMARY KEY,
+    account_id INTEGER NOT NULL REFERENCES "accounts"(id) ON DELETE CASCADE,
+    change_date TIMESTAMPTZ NOT NULL,
+    previous_balance BIGINT NOT NULL,
+    change_amount BIGINT NOT NULL,
+    new_balance BIGINT NOT NULL,
+    reason TEXT
 );
 
-ALTER TABLE "transfer_rule" ADD COLUMN linked_account_id INTEGER;
+ALTER TABLE "transfer_rule"
+ADD COLUMN IF NOT EXISTS linked_account_id INTEGER REFERENCES "accounts"(id);
 
-ALTER TABLE "transaction" ADD COLUMN is_manual_category BOOLEAN DEFAULT FALSE;
+ALTER TABLE "transaction" ADD COLUMN IF NOT EXISTS is_manual_category BOOLEAN DEFAULT FALSE;
 
-ALTER TABLE "accounts" ADD COLUMN is_investment BOOLEAN DEFAULT FALSE;
+ALTER TABLE "accounts" ADD COLUMN IF NOT EXISTS is_investment BOOLEAN DEFAULT FALSE;

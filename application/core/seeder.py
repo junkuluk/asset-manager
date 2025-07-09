@@ -2,11 +2,12 @@ import sqlite3
 import json
 import config
 from core.db_manager import rebuild_category_paths
-
+import streamlit as st
 
 def seed_initial_categories(db_path=config.DB_PATH):
 
-    conn = sqlite3.connect(db_path)
+    #conn = sqlite3.connect(db_path)
+    conn = st.connection("supabase", type="sql")
     cursor = conn.cursor()
 
     cursor.execute("SELECT COUNT(*) FROM category")
@@ -221,7 +222,8 @@ def seed_initial_categories(db_path=config.DB_PATH):
 
 
 def seed_initial_parties(db_path=config.DB_PATH):
-    conn = sqlite3.connect(db_path)
+    conn = st.connection("supabase", type="sql")
+    #conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
 
     cursor.execute("SELECT COUNT(*) FROM \"transaction_party\"")
@@ -247,7 +249,8 @@ def seed_initial_parties(db_path=config.DB_PATH):
 
 
 def seed_initial_rules(db_path=config.DB_PATH, rules_path=config.RULES_PATH):
-    conn = sqlite3.connect(db_path)
+    #conn = sqlite3.connect(db_path)
+    conn = st.connection("supabase", type="sql")
     cursor = conn.cursor()
     cursor.execute("SELECT COUNT(*) FROM \"rule\"")
     if cursor.fetchone()[0] > 0:
@@ -282,7 +285,8 @@ def seed_initial_rules(db_path=config.DB_PATH, rules_path=config.RULES_PATH):
 
 def seed_initial_accounts(db_path=config.DB_PATH):
 
-    conn = sqlite3.connect(db_path)
+    #conn = sqlite3.connect(db_path)
+    conn = st.connection("supabase", type="sql")
     cursor = conn.cursor()
 
     # 등록할 기본 계좌 목록
@@ -320,7 +324,8 @@ def seed_initial_accounts(db_path=config.DB_PATH):
 
 def seed_initial_transfer_rules(db_path=config.DB_PATH, rules_path=config.TRANSFER_RULES_PATH):
 
-    conn = sqlite3.connect(db_path)
+    #conn = sqlite3.connect(db_path)
+    conn = st.connection("supabase", type="sql")
     cursor = conn.cursor()
     cursor.execute("SELECT COUNT(*) FROM \"transfer_rule\"")
     if cursor.fetchone()[0] > 0:

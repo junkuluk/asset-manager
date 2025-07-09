@@ -47,8 +47,9 @@ else:
 
             submitted = st.form_submit_button("가치 업데이트 실행")
             if submitted:
-                with sqlite3.connect(config.DB_PATH) as conn:
-                    update_init_balance_and_log(int(selected_asset_id), new_balance, conn)
+                #with sqlite3.connect(config.DB_PATH) as conn:
+                conn = st.connection("supabase", type="sql")
+                update_init_balance_and_log(int(selected_asset_id), new_balance, conn)
                 st.success("자산 가치가 성공적으로 업데이트되었습니다.")
                 st.rerun()
 

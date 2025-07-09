@@ -1,85 +1,76 @@
-PRAGMA foreign_keys = ON;
+-- PostgreSQL에서는 테이블과 컬럼 이름에 큰따옴표(")를 사용하는 것이 표준입니다.
 
 CREATE TABLE IF NOT EXISTS "category" (
-    id INTEGER PRIMARY KEY,
+    id SERIAL PRIMARY KEY,                      -- SQLite의 INTEGER PRIMARY KEY -> SERIAL PRIMARY KEY
     category_code TEXT NOT NULL,
     category_type TEXT NOT NULL,
     description TEXT,
-    parent_id INTEGER,
-    materialized_path_desc TEXT NOT NULL,
-    depth INTEGER NOT NULL,
-    FOREIGN KEY (parent_id) REFERENCES "category" (id)
+    parent_id INTEGER REFERENCES "category"(id), -- 외래 키를 컬럼 정의에 직접 포함
+    materialized_path_desc TEXT,
+    depth INTEGER NOT NULL
 );
 
+-- 인덱스 생성은 별도로 유지
 CREATE UNIQUE INDEX IF NOT EXISTS idx_category_code_type ON "category" (category_code, category_type);
 
 CREATE TABLE IF NOT EXISTS "transaction_party" (
-    id INTEGER PRIMARY KEY,
+    id SERIAL PRIMARY KEY,
     party_code TEXT NOT NULL UNIQUE,
     description TEXT
 );
 
 CREATE TABLE IF NOT EXISTS "rule" (
-    id INTEGER PRIMARY KEY,
-    category_id INTEGER NOT NULL,
+    id SERIAL PRIMARY KEY,
+    category_id INTEGER NOT NULL REFERENCES "category"(id),
     description TEXT,
-    priority INTEGER NOT NULL DEFAULT 0,
-    FOREIGN KEY (category_id) REFERENCES "category" (id)
+    priority INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS "rule_condition" (
-    id INTEGER PRIMARY KEY,
-    rule_id INTEGER NOT NULL,              -- 어떤 규칙에 속한 조건인지
-    column_to_check TEXT NOT NULL,         -- 검사할 컬럼 이름 ('content', 'transaction_amount' 등)
+    id SERIAL PRIMARY KEY,
+    rule_id INTEGER NOT NULL REFERENCES "rule"(id) ON DELETE CASCADE,
+    column_to_check TEXT NOT NULL,
     match_type TEXT NOT NULL CHECK(match_type IN ('EXACT', 'CONTAINS', 'REGEX', 'GREATER_THAN', 'LESS_THAN', 'EQUALS')),
-    value TEXT NOT NULL,                   -- 비교할 값
-    FOREIGN KEY (rule_id) REFERENCES "rule" (id) ON DELETE CASCADE
+    value TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS "accounts" (
-    id INTEGER PRIMARY KEY,
-    name TEXT NOT NULL UNIQUE,          -- 계좌 이름 (예: 하나은행 입출금, 신한카드)
-    account_type TEXT NOT NULL,         -- 타입 (예: BANK_ACCOUNT, CREDIT_CARD, CASH, STOCK_ASSET)
-    balance INTEGER NOT NULL DEFAULT 0, -- 현재 잔액 (부채는 음수로 저장 가능)
-    is_asset BOOLEAN NOT NULL           -- 자산(True)인지 부채(False)인지 구분
+    id SERIAL PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE,
+    account_type TEXT NOT NULL,
+    balance BIGINT NOT NULL DEFAULT 0, -- 큰 금액을 위해 BIGINT 사용
+    is_asset BOOLEAN NOT NULL
 );
 
-
-
 CREATE TABLE IF NOT EXISTS "transaction" (
-    id INTEGER PRIMARY KEY,
+    id BIGSERIAL PRIMARY KEY, -- 거래량이 많을 것을 대비해 BIGSERIAL 사용
     "type" TEXT NOT NULL,
-    account_id INTEGER NOT NULL,
-    linked_account_id INTEGER,
-    transaction_type TEXT NOT NULL,
-    transaction_provider TEXT NOT NULL,
-    category_id INTEGER NOT NULL,
-    transaction_party_id INTEGER NOT NULL,
-    transaction_date TEXT NOT NULL,
-    transaction_amount INTEGER,
+    account_id INTEGER NOT NULL REFERENCES "accounts"(id),
+    linked_account_id INTEGER REFERENCES "accounts"(id),
+    transaction_type TEXT,
+    transaction_provider TEXT,
+    category_id INTEGER NOT NULL REFERENCES "category"(id),
+    transaction_party_id INTEGER NOT NULL REFERENCES "transaction_party"(id),
+    transaction_date TIMESTAMPTZ NOT NULL, -- 시간대 정보를 포함하는 TIMESTAMPTZ 추천
+    transaction_amount BIGINT,
     description TEXT,
-    content TEXT,
-    FOREIGN KEY (category_id) REFERENCES "category" (id),
-    FOREIGN KEY (account_id) REFERENCES "accounts" (id),
-    FOREIGN KEY (transaction_party_id) REFERENCES "transaction_party" (id)
+    content TEXT
 );
 
 CREATE TABLE IF NOT EXISTS "card_transaction" (
-    id INTEGER PRIMARY KEY,
+    -- transaction 테이블의 id를 그대로 사용하므로 BIGINT로 타입을 맞춤
+    id BIGINT PRIMARY KEY REFERENCES "transaction"(id) ON DELETE CASCADE,
     card_approval_number TEXT NOT NULL,
     card_type TEXT NOT NULL,
-    card_name TEXT NOT NULL,
-    FOREIGN KEY (id) REFERENCES "transaction" (id) ON DELETE CASCADE
+    card_name TEXT NOT NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_card_approval_number ON "card_transaction" (card_approval_number);
 
-
 CREATE TABLE IF NOT EXISTS "bank_transaction" (
-    id INTEGER PRIMARY KEY,
-    unique_hash TEXT NOT NULL UNIQUE, -- 중복 입력을 막기 위한 고유 해시값
-    branch TEXT,                      -- '거래점' 컬럼
-    balance_amount INTEGER,
-    FOREIGN KEY (id) REFERENCES "transaction" (id) ON DELETE CASCADE
+    -- transaction 테이블의 id를 그대로 사용하므로 BIGINT로 타입을 맞춤
+    id BIGINT PRIMARY KEY REFERENCES "transaction"(id) ON DELETE CASCADE,
+    unique_hash TEXT NOT NULL UNIQUE,
+    branch TEXT,
+    balance_amount BIGINT
 );
-

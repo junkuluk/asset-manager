@@ -1,1 +1,1 @@
-ALTER TABLE "accounts" ADD COLUMN initial_balance REAL DEFAULT 0;
+ALTER TABLE "accounts" ADD COLUMN IF NOT EXISTS initial_balance BIGINT DEFAULT 0;

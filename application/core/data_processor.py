@@ -1,12 +1,13 @@
 import hashlib
 import os
 import sqlite3
+import streamlit as st
 
 import numpy as np
 import pandas as pd
 import sys
 import os
-
+from sqlalchemy import text
 import config
 from analysis import run_rule_engine, identify_transfers
 from core.db_manager import update_balance_and_log
@@ -65,16 +66,11 @@ def insert_card_transactions_from_excel(filepath, db_path=config.DB_PATH):
     df['type'] = 'EXPENSE'
     df['transaction_type'] = 'CARD'
 
-    conn_temp = sqlite3.connect(db_path)
-    try:
-        cursor = conn_temp.cursor()
-        cursor.execute("SELECT id FROM category WHERE category_code = 'UNCATEGORIZED' AND category_type = 'EXPENSE'")
-        result = cursor.fetchone()
-        # 미분류 카테고리가 있으면 해당 ID를, 없으면 1(지출)을 기본값으로 사용
-        default_cat_id = result[0] if result else 1
-    finally:
-        conn_temp.close()
+    #conn_temp = sqlite3.connect(db_path)
+    conn_temp = st.connection("supabase", type="sql")
+    df = conn_temp.query("SELECT id FROM category WHERE category_code = 'UNCATEGORIZED' AND category_type = 'EXPENSE' LIMIT 1")
 
+    default_cat_id = df.iloc[0]['id'] if not df.empty else 1
     df = run_rule_engine(df, default_category_id=default_cat_id, db_path=db_path)
 
     # 1. 카드사 이름에 맞는 계좌 ID를 DB에서 조회
@@ -88,81 +84,96 @@ def insert_card_transactions_from_excel(filepath, db_path=config.DB_PATH):
         kukmin_card_account_id
     )
 
-    conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
+    #conn = sqlite3.connect(db_path)p
+    # 1. st.connection으로 연결 객체를 가져오고, with 구문으로 세션을 시작합니다.
+    conn = st.connection("supabase", type="sql")
+    with conn.session as s:
+        inserted_rows = 0
+        skipped_rows = 0
 
-    inserted_rows, skipped_rows = 0, 0
+        for _, row in df.iterrows():
+            try:
+                # 2. 중복 확인 (s.execute와 명명된 파라미터 사용)
+                check_query = text("""
+                    SELECT t.id FROM "transaction" t JOIN "card_transaction" ct ON t.id = ct.id 
+                    WHERE t.transaction_provider = :provider AND ct.card_approval_number = :approval
+                """)
+                existing_id = s.execute(check_query, {
+                    "provider": row['transaction_provider'], 
+                    "approval": row['card_approval_number']
+                }).scalar_one_or_none()
 
-    for _, row in df.iterrows():
-        try:
-            cursor.execute(
-                "SELECT t.id FROM \"transaction\" t JOIN \"card_transaction\" ct ON t.id = ct.id WHERE t.transaction_provider = ? AND ct.card_approval_number = ?",
-                (row['transaction_provider'], row['card_approval_number']))
+                if existing_id:
+                    skipped_rows += 1
+                    continue
 
-            if cursor.fetchone():
-                skipped_rows += 1
-                continue
+                # 3. transaction 테이블에 INSERT하고, RETURNING id로 즉시 새 ID를 받아옴
+                insert_trans_query = text("""
+                    INSERT INTO "transaction" (type, transaction_type, transaction_provider, category_id, 
+                                               transaction_party_id, transaction_date, transaction_amount, content, account_id)
+                    VALUES (:type, :ttype, :provider, :cat_id, :party_id, :tdate, :amount, :content, :acc_id)
+                    RETURNING id
+                """)
+                result = s.execute(insert_trans_query, {
+                    "type": row['type'], "ttype": row['transaction_type'], "provider": row['transaction_provider'],
+                    "cat_id": row['category_id'], "party_id": row['transaction_party_id'],
+                    "tdate": row['transaction_date'], "amount": row['transaction_amount'],
+                    "content": row['content'], "acc_id": row['account_id']
+                })
+                transaction_id = result.scalar_one()
 
-            cursor.execute(
-                """INSERT INTO "transaction"
-                   (type, transaction_type, transaction_provider, category_id, transaction_party_id, transaction_date,
-                    transaction_amount, content, account_id)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    row['type'], row['transaction_type'], row['transaction_provider'],  row['category_id'],
-                    row['transaction_party_id'], row['transaction_date'], row['transaction_amount'], row['content'],
-                    row['account_id']))
-            transaction_id = cursor.lastrowid
+                # 4. card_transaction 테이블에 INSERT
+                insert_card_query = text("""
+                    INSERT INTO "card_transaction" (id, card_approval_number, card_type, card_name) 
+                    VALUES (:id, :approval, :ctype, :cname)
+                """)
+                s.execute(insert_card_query, {
+                    "id": transaction_id, "approval": row['card_approval_number'],
+                    "ctype": row['card_type'], "cname": row['card_name']
+                })
 
-            cursor.execute(
-                """
-                INSERT INTO "card_transaction" (id, card_approval_number, card_type, card_name) VALUES (?, ?, ?, ?)
-                """,
-                (transaction_id, row['card_approval_number'], row['card_type'], row['card_name']))
-            inserted_rows += 1
+                inserted_rows += 1
 
-        except Exception as e:
-            print(f"데이터 삽입 중 오류 발생: {e}")
-            conn.rollback()
+            except Exception as e:
+                print(f"데이터 삽입 중 오류 발생: {e}")
+                s.rollback() # 오류 발생 시 이번 트랜잭션 전체를 되돌림
+                # 함수를 종료하거나, 다음 행을 계속 처리할 수 있음
+                return 0, 0 # 오류 발생 시 함수 중단
 
-    conn.commit()
-    conn.close()
-
-    print(f"총 {inserted_rows}건 삽입, {skipped_rows}건은 중복으로 건너뜀.")
+        # 5. for 루프가 모두 성공적으로 끝나면, 모든 변경사항을 최종적으로 DB에 저장
+        s.commit()
 
     return inserted_rows, skipped_rows
 
 
 def insert_bank_transactions_from_excel(filepath, db_path=config.DB_PATH):
     try:
-        df = pd.read_excel(filepath, skiprows=6,sheet_name=0)
+        df = pd.read_excel(filepath, skiprows=6, sheet_name=0)
         df.columns = df.columns.str.replace(r'\(원\)', '', regex=True).str.strip()
     except Exception as e:
         print(f"엑셀 파일 읽기 오류: {e}")
         return 0, 0
 
-        # 1. DB 연결을 한번만 하고, with 구문으로 자동 관리
-    with sqlite3.connect(db_path) as conn:
+    # 1. st.connection으로 연결 객체 생성
+    conn = st.connection("supabase", type="sql")
+    
+    with conn.session as s:
         try:
-            cursor = conn.cursor()
             # --- 필요한 ID와 기존 해시값 미리 로드 ---
-            existing_hashes = {row[0] for row in cursor.execute("SELECT unique_hash FROM bank_transaction")}
-            bank_account_id = get_account_id_by_name('신한은행-110-227-963599')
-
-            # 2. 안전하게 ID 조회
-            transfer_cat_id = \
-            (cursor.execute("SELECT id FROM category WHERE category_code = 'TRANSFER'").fetchone() or [None])[0]
-            default_expense_cat_id = (cursor.execute(
-                "SELECT id FROM category WHERE category_code = 'UNCATEGORIZED' AND category_type ='EXPENSE'").fetchone() or [
-                                          None])[0]
-            default_income_cat_id = (cursor.execute(
-                "SELECT id FROM category WHERE category_code = 'UNCATEGORIZED' AND category_type ='INCOME'").fetchone() or [
-                                         None])[0]
+            # .query()는 DataFrame을 반환하므로, 값을 추출하는 방식 변경
+            existing_hashes_df = s.connection.execute(text("SELECT unique_hash FROM bank_transaction"))
+            existing_hashes = {row[0] for row in existing_hashes_df}
+            
+            bank_account_id = get_account_id_by_name('신한은행-110-227-963599') # 이 함수도 내부적으로 st.connection을 사용하도록 수정 필요
+            
+            transfer_cat_id = s.execute(text("SELECT id FROM category WHERE category_code = 'TRANSFER'")).scalar_one_or_none()
+            default_expense_cat_id = s.execute(text("SELECT id FROM category WHERE category_code = 'UNCATEGORIZED' AND category_type ='EXPENSE'")).scalar_one_or_none()
+            default_income_cat_id = s.execute(text("SELECT id FROM category WHERE category_code = 'UNCATEGORIZED' AND category_type ='INCOME'")).scalar_one_or_none()
 
             if not all([bank_account_id, transfer_cat_id, default_expense_cat_id, default_income_cat_id]):
                 print("오류: 필수 계좌 또는 카테고리 ID를 DB에서 찾을 수 없습니다.")
                 return 0, 0
+
 
             df.dropna(subset=['거래일자', '거래시간'], inplace=True)
             date_str = pd.to_datetime(df['거래일자']).dt.strftime('%Y-%m-%d')
@@ -210,41 +221,46 @@ def insert_bank_transactions_from_excel(filepath, db_path=config.DB_PATH):
             inserted_count = 0
 
             for _, row in df.iterrows():
-                    cursor.execute("""
-                                   INSERT INTO "transaction" (type, transaction_type, transaction_provider, category_id,
-                                                              transaction_party_id, transaction_date, transaction_amount,
-                                                              content, account_id, linked_account_id)
-                                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?,?)
-                                   """, (
-                                       row['type'], 'BANK', 'SHINHAN_BANK', row['category_id'], 1,
-                                       pd.to_datetime(f"{row['거래일자']} {row['거래시간']}").strftime('%Y-%m-%d %H:%M:%S'),
-                                       row['transaction_amount'], str(row.get('적요', '')) + ' / ' + str(row.get('내용', '')),
-                                       bank_account_id,
-                                       None if pd.isna(row['linked_account_id']) or row[
-                                           'linked_account_id'] == 0 else int(row['linked_account_id'])
-                                   ))
-                    transaction_id = cursor.lastrowid
-                    cursor.execute(
-                        "INSERT INTO \"bank_transaction\" (id, unique_hash, branch, balance_amount) VALUES (?, ?, ?, ?)",
-                        (transaction_id, row['unique_hash'], row.get('거래점'), row.get('잔액')))
+                # INSERT transaction
+                insert_trans_query = text("""
+                    INSERT INTO "transaction" (type, transaction_type, transaction_provider, category_id,
+                                                transaction_party_id, transaction_date, transaction_amount,
+                                                content, account_id, linked_account_id)
+                    VALUES (:type, :trans_type, :provider, :cat_id, :party_id, :t_date, :t_amount, :content, :acc_id, :linked_id)
+                    RETURNING id
+                """)
+                result = s.execute(insert_trans_query, {
+                    "type": row['type'], "trans_type": 'BANK', "provider": 'SHINHAN_BANK', "cat_id": row['category_id'],
+                    "party_id": 1, "t_date": pd.to_datetime(f"{row['거래일자']} {row['거래시간']}").strftime('%Y-%m-%d %H:%M:%S'),
+                    "t_amount": row['transaction_amount'], "content": str(row.get('적요', '')) + ' / ' + str(row.get('내용', '')),
+                    "acc_id": bank_account_id,
+                    "linked_id": None if pd.isna(row['linked_account_id']) or row['linked_account_id'] == 0 else int(row['linked_account_id'])
+                })
+                transaction_id = result.scalar_one()
 
-                    # 잔액 업데이트
-                    amount = row['transaction_amount']
-                    reason = f"거래 ID {transaction_id}: {row['content']}"
-                    if row['type'] == 'INCOME':
-                        update_balance_and_log(bank_account_id, amount, reason, conn)
-                    elif row['type'] == 'EXPENSE':
-                        update_balance_and_log(bank_account_id, -amount, reason, conn)
-                    elif row['type'] == 'TRANSFER':
-                        update_balance_and_log(bank_account_id, -amount, f"이체 출금: {reason}", conn)
-                        update_balance_and_log(int(row['linked_account_id']), amount, f"이체 입금: {reason}", conn)
+                # INSERT bank_transaction
+                s.execute(
+                    text("INSERT INTO \"bank_transaction\" (id, unique_hash, branch, balance_amount) VALUES (:id, :hash, :branch, :balance)"),
+                    {"id": transaction_id, "hash": row['unique_hash'], "branch": row.get('거래점'), "balance": row.get('잔액')}
+                )
+                
+                # 잔액 업데이트
+                amount = row['transaction_amount']
+                reason = f"거래 ID {transaction_id}: {row['content']}"
+                if row['type'] == 'INCOME':
+                    update_balance_and_log(bank_account_id, amount, reason, s.connection) # conn.session 대신 s.connection 전달
+                elif row['type'] == 'EXPENSE':
+                    update_balance_and_log(bank_account_id, -amount, reason, s.connection)
+                elif row['type'] == 'TRANSFER':
+                    update_balance_and_log(bank_account_id, -amount, f"이체 출금: {reason}", s.connection)
+                    update_balance_and_log(int(row['linked_account_id']), amount, f"이체 입금: {reason}", s.connection)
+                
+                inserted_count += 1
 
-                    inserted_count += 1
-
-            conn.commit()
-            return inserted_count, skipped_count
+                s.commit() # 모든 작업이 성공하면 최종 커밋
+                return inserted_count, skipped_count
 
         except Exception as e:
             print(f"데이터 처리 중 오류 발생: {e}")
-            conn.rollback()
+            s.rollback()
             return 0, 0

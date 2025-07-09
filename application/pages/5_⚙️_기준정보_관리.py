@@ -156,12 +156,13 @@ if account_names:
             if submitted:
                 account_id = accounts_map[selected_account_name]
                 # DB 연결 및 함수 호출
-                with sqlite3.connect(config.DB_PATH) as conn:
-                    try:
-                        update_init_balance_and_log(account_id, adjustment_amount, conn)
-                        st.success(f"'{selected_account_name}' 계좌의 잔액 조정이 완료되었습니다.")
-                    except Exception as e:
-                        st.error(f"오류 발생: {e}")
+                #with sqlite3.connect(config.DB_PATH) as conn:
+                conn = st.connection("supabase", type="sql")
+                try:
+                    update_init_balance_and_log(account_id, adjustment_amount, conn)
+                    st.success(f"'{selected_account_name}' 계좌의 잔액 조정이 완료되었습니다.")
+                except Exception as e:
+                    st.error(f"오류 발생: {e}")
 
                 st.rerun()
 
