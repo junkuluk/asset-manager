@@ -6,10 +6,14 @@ from core.db_manager import reclassify_expense
 from core.db_queries import get_bank_expense_transactions, get_all_accounts
 from st_aggrid import AgGrid, GridOptionsBuilder
 from datetime import date
-from core.ui_utils import apply_common_styles
+from core.ui_utils import apply_common_styles, authenticate_user
 
 # --- 페이지 기본 설정 ---
 apply_common_styles()
+
+if not authenticate_user():
+    st.stop()
+
 st.set_page_config(layout="wide", page_title="거래 재분류")
 
 # --- 메시지 표시 로직 ---

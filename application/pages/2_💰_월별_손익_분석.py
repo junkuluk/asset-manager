@@ -3,10 +3,14 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 from core.db_queries import load_income_expense_summary, load_monthly_category_summary
-from core.ui_utils import apply_common_styles
+from core.ui_utils import apply_common_styles, authenticate_user
 from datetime import date
 
 apply_common_styles()
+
+if not authenticate_user():
+    st.stop()
+
 st.set_page_config(layout="wide", page_title="월별 손익 분석")
 st.title("💰 월별 손익 분석")
 st.markdown("---")

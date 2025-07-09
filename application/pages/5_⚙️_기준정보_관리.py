@@ -8,9 +8,13 @@ from core.db_manager import add_new_party, add_new_category, rebuild_category_pa
     add_new_account, reclassify_all_transfers, recategorize_uncategorized, update_init_balance_and_log
 from core.db_queries import get_all_parties_df, get_all_categories, get_all_categories_with_hierarchy, get_all_accounts, \
     get_balance_history, get_all_accounts_df, get_init_balance
-from core.ui_utils import apply_common_styles
+from core.ui_utils import apply_common_styles, authenticate_user
 
 apply_common_styles()
+
+if not authenticate_user():
+    st.stop()
+
 st.set_page_config(layout="wide", page_title="기준정보 관리")
 st.title("⚙️ 기준정보 관리")
 st.markdown("---")

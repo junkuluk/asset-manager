@@ -10,10 +10,13 @@ from core.db_manager import update_transaction_category, update_transaction_desc
     reclassify_expense
 from core.db_queries import load_data_from_db, get_all_categories, get_all_parties, get_bank_expense_transactions, \
     get_all_accounts
-from core.ui_utils import apply_common_styles
+from core.ui_utils import apply_common_styles, authenticate_user
 
 # 1. 공통 스타일 적용
 apply_common_styles()
+
+if not authenticate_user():
+    st.stop()
 
 st.set_page_config(layout="wide", page_title="거래내역 상세 수정")
 

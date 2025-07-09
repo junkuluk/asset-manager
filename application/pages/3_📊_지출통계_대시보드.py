@@ -7,10 +7,13 @@ import streamlit as st
 from st_aggrid import AgGrid
 
 from core.db_queries import load_data_for_sunburst, load_data_for_pivot_grid, load_monthly_total_spending
-from core.ui_utils import apply_common_styles
+from core.ui_utils import apply_common_styles, authenticate_user
 
 # 1. 공통 스타일 적용 (상단 여백 줄이기 등)
 apply_common_styles()
+
+if not authenticate_user():
+    st.stop()
 
 st.set_page_config(layout="wide", page_title="계층별 지출 분석")
 st.title("📊 계층별 지출 분석")

@@ -2,9 +2,13 @@ import streamlit as st
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from core.db_queries import get_monthly_summary_for_dashboard
-from core.ui_utils import apply_common_styles
+from core.ui_utils import apply_common_styles, authenticate_user
 
 apply_common_styles()
+
+if not authenticate_user():
+    st.stop()
+
 st.set_page_config(layout="wide", page_title="종합 자산 대시보드")
 st.title("💎 종합 자산 대시보드")
 st.markdown("월별 현금흐름과 그에 따른 순자산의 변화를 추적합니다.")

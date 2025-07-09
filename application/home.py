@@ -5,15 +5,20 @@ import streamlit as st
 from core.db_manager import run_migrations
 from core.seeder import seed_initial_categories, seed_initial_parties, seed_initial_rules, seed_initial_accounts, \
     seed_initial_transfer_rules
-from core.ui_utils import apply_common_styles
+from core.ui_utils import apply_common_styles, authenticate_user
 
 apply_common_styles()
+
+if not authenticate_user():
+    st.stop()
 
 st.set_page_config(
     layout="wide",
     page_title="나의 자산 관리 대시보드",
     page_icon="💰"
 )
+
+
 
 try:
     run_migrations()

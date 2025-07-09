@@ -2,9 +2,12 @@ import streamlit as st
 
 import config
 from core.data_processor import insert_card_transactions_from_excel, insert_bank_transactions_from_excel
-from core.ui_utils import apply_common_styles
+from core.ui_utils import apply_common_styles, authenticate_user
 
 apply_common_styles()
+
+if not authenticate_user():
+    st.stop()
 
 st.set_page_config(layout="wide", page_title="📈 신규 거래내역 업로드")
 

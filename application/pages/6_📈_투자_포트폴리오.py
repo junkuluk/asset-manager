@@ -6,9 +6,13 @@ import sqlite3
 import plotly.express as px
 from core.db_manager import update_init_balance_and_log
 from core.db_queries import get_investment_accounts, get_balance_history, get_init_balance
-from core.ui_utils import apply_common_styles
+from core.ui_utils import apply_common_styles, authenticate_user
 
 apply_common_styles()
+
+if not authenticate_user():
+    st.stop()
+
 st.set_page_config(layout="wide", page_title="투자 포트폴리오")
 st.title("📈 투자 포트폴리오")
 st.markdown("---")

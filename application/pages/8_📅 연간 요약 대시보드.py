@@ -2,11 +2,15 @@ import streamlit as st
 import pandas as pd
 from datetime import date
 from core.db_queries import get_annual_summary_data, get_annual_asset_summary
-from core.ui_utils import apply_common_styles
+from core.ui_utils import apply_common_styles, authenticate_user
 import numpy as np
 
 # --- 페이지 기본 설정 ---
 apply_common_styles()
+
+if not authenticate_user():
+    st.stop()
+
 st.set_page_config(layout="wide", page_title="연간 재무 요약")
 st.title("📅 연간 재무 요약")
 st.markdown("선택된 연도의 수입, 지출, 투자 현황과 현금 흐름을 요약합니다.")
