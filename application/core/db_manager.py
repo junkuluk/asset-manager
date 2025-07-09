@@ -4,10 +4,12 @@ from datetime import datetime
 
 import pandas as pd
 
+
+
 import config
 from analysis import run_rule_engine, identify_transfers
 
-LATEST_DB_VERSION = 3
+LATEST_DB_VERSION = 4
 SUCCESS_MSG = "성공적으로 추가되었습니다."
 
 
@@ -151,6 +153,17 @@ def rebuild_category_paths(db_path=config.DB_PATH):
     finally:
         conn.close()
 
+def update_init_balance_and_log(account_id, change_amount, conn):
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT initial_balance FROM accounts WHERE id = ?", (account_id,))
+    result = cursor.fetchone()
+    if result is None:
+        raise ValueError(f"Account with ID {account_id} not found.")
+
+    # 2. accounts 테이블의 잔액을 업데이트
+    cursor.execute("UPDATE accounts SET initial_balance = ? WHERE id = ?", (change_amount, account_id))
+
 
 def update_balance_and_log(account_id, change_amount, reason, conn):
     cursor = conn.cursor()
@@ -183,7 +196,7 @@ def reclassify_expense(transaction_id, linked_account_id, db_path=config.DB_PATH
             # 1. 변경할 거래의 금액과 현재 타입을 확인
             cursor.execute("SELECT transaction_amount, type FROM \"transaction\" WHERE id = ?", (int(transaction_id),))
             trans_result = cursor.fetchone()
-            cursor.execute("SELECT account_type FROM accounts WHERE id = ?", (int(linked_account_id),))
+            cursor.execute("SELECT account_type, is_investment FROM accounts WHERE id = ?", (int(linked_account_id),))
             linked_account_result = cursor.fetchone()
 
             if not trans_result or not linked_account_result:
@@ -199,12 +212,15 @@ def reclassify_expense(transaction_id, linked_account_id, db_path=config.DB_PATH
             if is_investment:
                 new_type = 'INVEST'
                 # '주식' 카테고리 ID를 찾음 (seeder에 STOCKS 코드가 있다고 가정)
-                cursor.execute("SELECT id FROM category WHERE category_code = 'INVESTMENT'")
+                cursor.execute("SELECT id FROM category WHERE category_code = ? ",(linked_account_type,))
                 new_category_id = cursor.fetchone()[0]
             else:  # 카드 계좌 등
                 new_type = 'TRANSFER'
-                cursor.execute("SELECT id FROM category WHERE category_code = 'TRANSFER'")
+                cursor.execute("SELECT id FROM category WHERE category_code = 'CARD_PAYMENT'")
                 new_category_id = cursor.fetchone()[0]
+
+
+
 
             # 3. 거래 내역 업데이트
             cursor.execute(
@@ -229,19 +245,19 @@ def add_new_account(name, account_type, is_asset, initial_balance, db_path=confi
         cursor = conn.cursor()
         try:
             cursor.execute(
-                "INSERT INTO accounts (name, account_type, is_asset, balance) VALUES (?, ?, ?, ?)",
+                "INSERT INTO accounts (name, account_type, is_asset, initial_balance) VALUES (?, ?, ?, ?)",
                 (name, account_type, is_asset, initial_balance)
             )
 
-            if initial_balance != 0:
-                new_account_id = cursor.lastrowid
-                now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                cursor.execute("""
-                               INSERT INTO account_balance_history (account_id, change_date, previous_balance,
-                                                                    change_amount, new_balance, reason)
-                               VALUES (?, ?, ?, ?, ?, ?)
-                               """,
-                               (new_account_id, now_str, 0, initial_balance, initial_balance, "신규 계좌 생성 및 초기 잔액 설정"))
+            # if initial_balance != 0:
+            #     new_account_id = cursor.lastrowid
+            #     now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            #     cursor.execute("""
+            #                    INSERT INTO account_balance_history (account_id, change_date, previous_balance,
+            #                                                         change_amount, new_balance, reason)
+            #                    VALUES (?, ?, ?, ?, ?, ?)
+            #                    """,
+            #                    (new_account_id, now_str, 0, initial_balance, initial_balance, "신규 계좌 생성 및 초기 잔액 설정"))
 
             conn.commit()
             return True, SUCCESS_MSG

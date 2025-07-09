@@ -1,0 +1,93 @@
+import streamlit as st
+import pandas as pd
+from datetime import date
+from core.db_queries import get_annual_summary_data
+from core.ui_utils import apply_common_styles
+import numpy as np
+
+apply_common_styles()
+st.set_page_config(layout="wide", page_title="연간 재무 요약")
+st.title("📅 연간 재무 요약")
+st.markdown("선택된 연도의 수입, 지출, 투자 현황과 현금 흐름을 요약합니다.")
+st.markdown("---")
+
+# --- 연도 선택 UI ---
+current_year = date.today().year
+selected_year = st.selectbox(
+    "조회 연도",
+    options=range(current_year, 2019, -1),
+    index=0
+)
+st.markdown("---")
+
+# --- 데이터 로드 ---
+source_df = get_annual_summary_data(selected_year)
+
+if source_df.empty:
+    st.warning(f"{selected_year}년에는 분석할 데이터가 없습니다.")
+else:
+    # --- 여기가 수정된 최종 로직입니다 ---
+
+    # 1. 기본 피벗 테이블 생성 (데이터가 있는 항목만 포함됨)
+    #all_months_of_year = [f"{selected_year}/{str(m).zfill(2)}" for m in range(1, 13)]
+    #source_df['연월'] = pd.Categorical(source_df['연월'], categories=all_months_of_year, ordered=True)
+
+    pivot_data = pd.pivot_table(
+        source_df, index=['구분', '항목'], columns='연월',
+        values='금액', aggfunc='sum', fill_value=0, dropna=False
+    )
+
+    all_months_of_year = [f"{selected_year}/{str(m).zfill(2)}" for m in range(1, 13)]
+    pivot_df = pivot_data.reindex(columns=all_months_of_year, fill_value=0)
+
+    # 2. 최종 보고서에 표시될 행의 순서와 구조를 직접 정의
+    report_structure = [
+        ('수입', '고정 수입'), ('수입', '변동 수입'), ('수입', '미분류 수입'), ('수입', '수입 소계'),
+        ('지출', '고정 지출'), ('지출', '변동 지출'), ('지출', '미분류 지출'), ('지출', '지출 소계'),
+        ('투자', '투자'), ('투자', '투자 소계'),
+        ('현금흐름', '투자가능금액 (수입-지출)'),
+        ('현금흐름', '최종 현금 변동')
+    ]
+    report_index = pd.MultiIndex.from_tuples(report_structure, names=['구분', '항목'])
+
+    # 3. 정의된 구조를 가진 빈 보고서 '틀' 생성
+    report_df = pd.DataFrame(0, index=report_index, columns=pivot_data.columns)
+
+    # 4. '틀'에 실제 피벗 데이터 값을 채워넣기 (있는 값만 업데이트)
+    report_df.update(pivot_data)
+
+    # 5. 소계 및 요약 행을 직접 계산하여 채워넣기
+    income_sum = report_df.loc['수입', :'미분류 수입'].sum()
+    expense_sum = report_df.loc['지출', :'미분류 지출'].sum()
+    invest_sum = report_df.loc['투자', :'투자'].sum()  # '투자' 항목이 하나이므로 자기 자신이 소계
+
+    report_df.loc[('수입', '수입 소계')] = income_sum
+    report_df.loc[('지출', '지출 소계')] = expense_sum
+    report_df.loc[('투자', '투자 소계')] = invest_sum
+
+    report_df.loc[('현금흐름', '투자가능금액 (수입-지출)')] = income_sum - expense_sum
+    report_df.loc[('현금흐름', '최종 현금 변동')] = income_sum - expense_sum - invest_sum
+
+    # 6. '연간 총합계' 컬럼 추가
+    report_df['Total'] = report_df.sum(axis=1)
+
+    # 인덱스를 컬럼으로 변환
+    final_df_to_style = report_df.reset_index()
+
+    # 7. Pandas 스타일링 적용
+    numeric_cols = final_df_to_style.select_dtypes(include=np.number).columns.tolist()
+
+
+    def highlight_rows(row):
+        is_total = '소계' in row['항목'] or '금액' in row['항목'] or '변동' in row['항목']
+        style = 'font-weight: bold; background-color: #f7f7f7' if is_total else ''
+        return [style for _ in row]
+
+
+    styled_df = final_df_to_style.style.apply(highlight_rows, axis=1) \
+        .format("{:,.0f}", na_rep='-', subset=numeric_cols) \
+        .hide(axis="index")
+
+    # 8. 최종 결과물 표시
+    st.subheader(f"{selected_year}년 월별 요약")
+    st.dataframe(styled_df, use_container_width=True, hide_index=True, height=(len(final_df_to_style) + 1) * 35 + 3)

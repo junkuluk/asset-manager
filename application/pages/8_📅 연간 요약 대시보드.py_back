@@ -1,0 +1,96 @@
+import numpy as np
+import streamlit as st
+import pandas as pd
+from datetime import date
+from core.db_queries import get_annual_summary_data
+from st_aggrid import AgGrid, GridOptionsBuilder
+from core.ui_utils import apply_common_styles
+
+apply_common_styles()
+st.set_page_config(layout="wide", page_title="연간 재무 요약")
+st.title("📅 연간 재무 요약")
+st.markdown("선택된 연도의 수입, 지출, 투자 현황과 현금 흐름을 요약합니다.")
+st.markdown("---")
+
+# --- 연도 선택 UI ---
+current_year = date.today().year
+selected_year = st.selectbox(
+    "조회 연도",
+    options=range(current_year, 2019, -1),
+    index=0
+)
+
+st.markdown("---")
+
+# --- 데이터 로드 ---
+source_df = get_annual_summary_data(selected_year)
+
+if source_df.empty:
+    st.warning(f"{selected_year}년에는 분석할 데이터가 없습니다.")
+else:
+    # --- 여기가 수정된 최종 로직입니다 ---
+
+    # 1. 모든 월 목록을 미리 생성
+    all_months_of_year = [f"{selected_year}/{str(m).zfill(2)}" for m in range(1, 13)]
+    source_df['연월'] = pd.Categorical(source_df['연월'], categories=all_months_of_year, ordered=True)
+
+    # 2. 기본 피벗 테이블 생성 (margins 사용 안 함)
+    pivot_df = pd.pivot_table(
+        source_df,
+        index=['구분', '항목'],
+        columns='연월',
+        values='금액',
+        aggfunc='sum',
+        fill_value=0,
+        dropna=False
+    )
+
+    # 3. '연간 총합계' 컬럼을 먼저 추가
+    pivot_df['Total'] = pivot_df.sum(axis=1)
+
+    subtotals = pivot_df.groupby(level='구분').sum()
+    subtotals.index = pd.MultiIndex.from_tuples([(idx, f'{idx} 소계') for idx in subtotals.index])
+
+    # 원본 피벗과 소계를 합침
+    final_df = pd.concat([pivot_df, subtotals]).sort_index()
+
+    # --- 여기가 수정되었습니다! ---
+    # 1. concat으로 유실된 인덱스 이름을 다시 명확하게 지정합니다.
+    final_df.index.names = ['구분', '항목']
+
+    # 2. 이제 '수입'과 '지출' 행을 안전하게 찾을 수 있습니다.
+    income_total = final_df.loc[('수입', '수입 소계')] if ('수입', '수입 소계') in final_df.index else 0
+    expense_total = final_df.loc[('지출', '지출 소계')] if ('지출', '지출 소계') in final_df.index else 0
+
+    investable_cash_flow = income_total - expense_total
+    investable_cash_flow.name = ('현금흐름', '투자가능금액 (수입-지출)')
+
+    final_df = pd.concat([final_df, investable_cash_flow.to_frame().T])
+
+    # 'Total' 컬럼 추가 및 최종 인덱스 리셋
+    final_df['Total'] = final_df.sum(axis=1)
+    final_df.index.names = ['구분', '항목']  # concat 후 다시 한번 이름 지정
+    final_df.reset_index(inplace=True)
+
+    # 6. Pandas 스타일링
+    numeric_cols = final_df.select_dtypes(include=np.number).columns.tolist()
+
+
+    def highlight_totals(row):
+        is_total = '소계' in row['항목'] or '투자가능금액' in row['항목']
+        return ['font-weight: bold; background-color: #f5f5f5' if is_total else '' for _ in row]
+
+
+    styled_df = final_df.style.apply(highlight_totals, axis=1) \
+        .format("{:,.0f}", na_rep='-', subset=numeric_cols) \
+        .set_properties(subset=numeric_cols, **{'text-align': 'right'}) \
+        .hide(axis="index")
+
+    # 7. 최종 결과물 표시
+    st.subheader(f"{selected_year}년 월별 요약")
+    st.dataframe(
+        styled_df,
+        use_container_width=True,
+        height=(len(final_df) + 1) * 35 + 3,
+        hide_index=True  # <<< 이 옵션을 추가합니다.
+    )

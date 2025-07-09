@@ -2,7 +2,6 @@ import os
 
 import streamlit as st
 
-import config
 from core.db_manager import run_migrations
 from core.seeder import seed_initial_categories, seed_initial_parties, seed_initial_rules, seed_initial_accounts, \
     seed_initial_transfer_rules

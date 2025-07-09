@@ -51,12 +51,47 @@
     ]
   },
 
+  {  "description": "세아 보험",
+    "priority": 1,
+    "category_code": "SEA_INSURANCE",
+    "conditions": [
+      { "column": "content", "match_type": "CONTAINS", "value": "현대" },
+      { "column": "transaction_amount", "match_type": "EQUALS", "value": "17980" }
+    ]
+  },
+
+  {  "description": "세아 보험",
+    "priority": 1,
+    "category_code": "SEA_INSURANCE",
+    "conditions": [
+      { "column": "content", "match_type": "CONTAINS", "value": "현대" },
+      { "column": "transaction_amount", "match_type": "EQUALS", "value": "36500" }
+    ]
+  },
+
   {  "description": "혜인 보험",
     "priority": 1,
     "category_code": "HYEIN_INSURANCE",
     "conditions": [
       { "column": "content", "match_type": "EXACT", "value": "DB손" },
       { "column": "transaction_amount", "match_type": "EQUALS", "value": "104430" }
+    ]
+  },
+  {  "description": "혜인 보험",
+    "priority": 1,
+    "category_code": "HYEIN_INSURANCE",
+    "conditions": [
+      { "column": "content", "match_type": "CONTAINS", "value": "새마을" },
+      { "column": "transaction_amount", "match_type": "EQUALS", "value": "34100" }
+    ]
+  },
+
+  {  "description": "혜인 보험",
+    "priority": 1,
+    "category_code": "HYEIN_INSURANCE",
+    "conditions": [
+      { "column": "content", "match_type": "CONTAINS", "value": "새마을" },
+      { "column": "transaction_amount", "match_type": "EQUALS", "value": "100000" }
     ]
   },
 
@@ -217,6 +252,23 @@
     "category_code": "COMMUNICATION_EXPENSE",
     "conditions": [
       { "column": "content", "match_type": "EXACT", "value": "0800KT통신요금" }
+    ]
+  },
+
+  {
+    "description": "영준 월급",
+    "priority": 1,
+    "category_code": "SALARY",
+    "conditions": [
+      { "column": "content", "match_type": "EXACT", "value": "급여현대오토에버" }
+    ]
+  },
+  {
+    "description": "영준 핸드폰지원금",
+    "priority": 1,
+    "category_code": "MOBILE_SUBSIDY",
+    "conditions": [
+      { "column": "content", "match_type": "EXACT", "value": "오토에버경비" }
     ]
   }
 ]

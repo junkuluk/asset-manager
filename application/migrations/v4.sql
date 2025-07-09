@@ -1,0 +1,1 @@
+ALTER TABLE "accounts" ADD COLUMN initial_balance REAL DEFAULT 0;

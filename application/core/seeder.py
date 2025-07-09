@@ -34,7 +34,7 @@ def seed_initial_categories(db_path=config.DB_PATH):
         cursor.execute(insert_level_top, ('EXPENSE', 'EXPENSE', '지출', '1', 1))
         expense_id = cursor.lastrowid
 
-        cursor.execute(insert_level_top, ('INVESTMENT', 'INVESTMENT', '투자', '2', 1))
+        cursor.execute(insert_level_top, ('INVEST', 'INVEST', '투자', '2', 1))
         investment_id = cursor.lastrowid
 
         cursor.execute(insert_level_top, ('INCOME', 'INCOME', '수입', '3', 1))
@@ -45,11 +45,17 @@ def seed_initial_categories(db_path=config.DB_PATH):
 
         # --- Level 2: 지출 하위 ---
         cursor.execute(insert_level,
-                       ('UNCATEGORIZED', 'EXPENSE', expense_id, '비분류 지출', '1-2', 2))
+                       ('UNCATEGORIZED', 'EXPENSE', expense_id, '미분류 지출', '1-2', 2))
 
         cursor.execute(insert_level,
-                       ('UNCATEGORIZED', 'INCOME', income_id, '비분류 수입', '1-2', 2))
+                       ('UNCATEGORIZED', 'INCOME', income_id, '미분류 수입', '1-2', 2))
 
+        cursor.execute(insert_level,
+                       ('FIXED_INCOME', 'INCOME', income_id, '고정 수입', '1-2', 2))
+        fixed_income_id = cursor.lastrowid
+        cursor.execute(insert_level,
+                       ('VARIABLE_INCOME', 'INCOME', income_id, '변동 수입', '1-2', 2))
+        variable_income_id = cursor.lastrowid
         cursor.execute(insert_level,
                        ('FIXED_EXPENSE', 'EXPENSE', expense_id, '고정 지출', '1-2', 2))
         fixed_expense_id = cursor.lastrowid
@@ -58,7 +64,31 @@ def seed_initial_categories(db_path=config.DB_PATH):
                        ('VARIABLE_EXPENSE', 'EXPENSE', expense_id, '변동 지출', '1-2', 2))
         variable_expense_id = cursor.lastrowid
 
-        cursor.execute(insert_level, ('CARD_PAYMENT', 'TRANSFER', transfer_id, '카드대금 납부', '4-temp', 2))
+        cursor.execute(insert_level, ('INVESTMENT', 'INVEST', investment_id, '투자', '2-temp', 2))
+        investment_lvl2_id = cursor.lastrowid
+        cursor.execute(insert_level, ('CARD_PAYMENT', 'TRANSFER', transfer_id, '카드대금 이체', '4-temp', 2))
+
+        # --- Level 3: 투자 하위 ---
+        cursor.execute(insert_level,
+                       ('SAVINGS', 'INVEST', investment_lvl2_id, '저축', '2-2', 3))
+        cursor.execute(insert_level,
+                       ('STOCKS', 'INVEST', investment_lvl2_id, '주식', '2-2', 3))
+        cursor.execute(insert_level,
+                       ('CRYPTOCURRENCY', 'INVEST', investment_lvl2_id, '비트코인', '2-2', 3))
+        cursor.execute(insert_level,
+                       ('REAL_ESTATE', 'INVEST', investment_lvl2_id, '부동산', '2-2', 3))
+
+
+        # --- Level 3: 수입 하위 ---
+        cursor.execute(insert_level,
+                       ('SALARY', 'INCOME', fixed_income_id, '급여', '3-2-1', 3))
+        cursor.execute(insert_level,
+                       ('SUBSIDY', 'INCOME', fixed_income_id, '지원금', '3-2-1', 3))
+        cursor.execute(insert_level,
+                       ('INCENTIVE', 'INCOME', variable_income_id, '인센티브', '3-2-1', 3))
+        cursor.execute(insert_level,
+                       ('FINANCIAL_INCOME', 'INCOME', variable_income_id, '금융수입', '3-2-1', 3))
+        subsidy_id = cursor.lastrowid
 
         # --- Level 3: 고정 지출 하위 ---
         level3_fixed_parents = {
@@ -169,24 +199,6 @@ def seed_initial_categories(db_path=config.DB_PATH):
         cursor.execute(insert_level,
                        ('MOVIES', 'EXPENSE', level3_variable_ids['LEISURE_EXPENSE'], '영화', '1-2-3-4', 4))
 
-        # --- Level 2: 투자 하위 ---
-        cursor.execute(insert_level,
-                       ('SAVINGS', 'INVESTMENT', investment_id, '저축', '2-2', 2))
-        cursor.execute(insert_level,
-                       ('STOCKS', 'INVESTMENT', investment_id, '주식', '2-2', 2))
-        cursor.execute(insert_level,
-                       ('CRYPTOCURRENCY', 'INVESTMENT', investment_id, '비트코인', '2-2', 2))
-
-        # --- Level 2: 수입 하위 ---
-        cursor.execute(insert_level,
-                       ('SALARY', 'INCOME', income_id, '급여', '3-2', 2))
-        cursor.execute(insert_level,
-                       ('SUBSIDY', 'INCOME', income_id, '지원금', '3-2', 2))
-        cursor.execute(insert_level,
-                       ('INCENTIVE', 'INCOME', income_id, '인센티브', '3-2', 2))
-        cursor.execute(insert_level,
-                       ('FINANCIAL_INCOME', 'INCOME', income_id, '금융수입', '3-2', 2))
-        subsidy_id = cursor.lastrowid
 
         # --- Level 3: 지원금 하위 ---
         cursor.execute(insert_level,
@@ -282,12 +294,12 @@ def seed_initial_accounts(db_path=config.DB_PATH):
         ('현대카드', 'CREDIT_CARD', False, False),
         ('현금', 'CASH', True, False),
         ('미지정_거래처', 'UNCATEGORIZED', True, False),
-        ('세아적금', 'SAVING', True, True),
-        ('혜인적금', 'SAVING', True, True),
-        ('영준해외주식', 'STOCK_ASSET', True, True),
-        ('영준국내주식', 'STOCK_ASSET', True, True),
-        ('혜인국내주식', 'STOCK_ASSET', True, True),
-        ('코인원', 'CRYPTO', True, True),
+        ('세아적금', 'SAVINGS', True, True),
+        ('혜인적금', 'SAVINGS', True, True),
+        ('영준해외주식', 'STOCKS', True, True),
+        ('영준국내주식', 'STOCKS', True, True),
+        ('혜인국내주식', 'STOCKS', True, True),
+        ('코인원', 'CRYPTOCURRENCY', True, True),
         ('일산집', 'REAL_ESTATE', True, True),
         ('전세금', 'REAL_ESTATE', True, False),
     ]
@@ -306,7 +318,7 @@ def seed_initial_accounts(db_path=config.DB_PATH):
     conn.commit()
     conn.close()
 
-def seed_initial_transfer_rules(db_path=config.DB_PATH, rules_path='initial_transfer_rules.json'):
+def seed_initial_transfer_rules(db_path=config.DB_PATH, rules_path=config.TRANSFER_RULES_PATH):
 
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()

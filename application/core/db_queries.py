@@ -1,5 +1,6 @@
 import sqlite3
 
+import numpy as np
 import pandas as pd
 
 import config
@@ -43,7 +44,7 @@ def load_data_from_db(start_date, end_date, transaction_types: list = None, cat_
     return df
 
 
-def get_all_categories(category_type: str = None,  include_top_level: bool = False, db_path=config.DB_PATH):
+def get_all_categories(category_type: str = None, include_top_level: bool = False, db_path=config.DB_PATH):
     with sqlite3.connect(db_path) as conn:
         base_query = "SELECT id, description FROM category"
         conditions = []
@@ -173,25 +174,26 @@ def get_all_parties_df(db_path=config.DB_PATH):
 def get_all_categories_with_hierarchy(db_path=config.DB_PATH):
     with sqlite3.connect(db_path) as conn:
         df = pd.read_sql_query("SELECT * FROM category ORDER BY materialized_path_desc", conn)
-        if df.empty:
-            return pd.DataFrame()
+        if df.empty: return pd.DataFrame()
 
         id_to_desc_map = df.set_index('id')['description'].to_dict()
-        id_to_parent_map = df.set_index('id')['parent_id'].to_dict()
+        id_to_parent_map = pd.to_numeric(df.set_index('id')['parent_id'], errors='coerce').fillna(0).astype(
+            int).to_dict()
 
-        max_depth = int(df['depth'].max())
-        for i in range(1, max_depth + 1):
-            df[f'L{i}'] = None
-
+        path_names_list = []
         for index, row in df.iterrows():
             path_names = []
             temp_id = row['id']
-            while pd.notna(temp_id) and temp_id in id_to_parent_map:
+            while temp_id != 0 and temp_id in id_to_parent_map:
                 path_names.insert(0, id_to_desc_map.get(temp_id, ""))
-                temp_id = id_to_parent_map.get(temp_id)
-            for i in range(len(path_names)):
-                df.loc[index, f'L{i + 1}'] = path_names[i]
+                temp_id = id_to_parent_map.get(temp_id, 0)
+            # --- 여기가 수정되었습니다 ---
+            # 각 행에 대한 이름 경로를 리스트에 저장
+            path_names_list.append("/".join(path_names))
 
+        # DataFrame에 새로운 'name_path' 컬럼을 한 번에 추가
+        df['name_path'] = path_names_list
+        # ----------------------------
         return df
 
 
@@ -278,10 +280,17 @@ def get_balance_history(account_id, db_path=config.DB_PATH):
         query = "SELECT change_date, reason, previous_balance, change_amount, new_balance FROM account_balance_history WHERE account_id = ? ORDER BY change_date DESC"
         return pd.read_sql_query(query, conn, params=(account_id,))
 
+def get_init_balance(account_id, db_path=config.DB_PATH):
+    with sqlite3.connect(db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT balance, initial_balance FROM accounts WHERE id = ?",(account_id,))
+        result = cursor.fetchone()
+        return result if result else None
+
 def get_investment_accounts(db_path=config.DB_PATH):
     with sqlite3.connect(db_path) as conn:
         # STOCK_ASSET, FUND, CRYPTO 등 투자와 관련된 타입만 선택
-        query = "SELECT * FROM accounts WHERE account_type IN ('STOCK_ASSET', 'SAVING', 'CRYPTO', 'REAL_ESTATE')"
+        query = "SELECT * FROM accounts WHERE is_investment = 1"
         return pd.read_sql_query(query, conn)
 
 def get_all_accounts_df(db_path=config.DB_PATH):
@@ -293,8 +302,10 @@ def get_all_accounts_df(db_path=config.DB_PATH):
                     id, 
                     name, 
                     account_type, 
-                    balance, 
-                    CASE WHEN is_asset = 1 THEN '자산' ELSE '부채' END as type 
+                    initial_balance,
+                    balance,
+                    CASE WHEN is_asset = 1 THEN '자산' ELSE '부채' END as type, 
+                    CASE WHEN is_investment = 1 THEN '투자' ELSE '비투자' END as investment
                 FROM accounts 
                 ORDER BY type, name
             """
@@ -397,3 +408,77 @@ def get_annual_summary_data(year: int, db_path=config.DB_PATH):
         except Exception as e:
             print(f"연간 요약 데이터 로드 오류: {e}")
             return pd.DataFrame()
+
+
+
+
+def get_annual_asset_summary(year: int, db_path=config.DB_PATH):
+
+    with sqlite3.connect(db_path) as conn:
+        # 1. 모든 자산 계좌의 기본 정보(초기 잔액 포함)를 가져옴
+        accounts_df = pd.read_sql_query(
+            "SELECT id, name, initial_balance, DATETIME('1777-01-11 01:01:01') as initial_balance_date FROM accounts ",
+            conn,
+            parse_dates=['initial_balance_date']
+        )
+        if accounts_df.empty:
+            return pd.DataFrame()
+
+
+        # 2. 모든 거래 내역을 통합하여 계좌별 증감 내역을 만듦
+        query = """
+                -- 모든 거래를 (계좌ID, 날짜, 변동액) 형태로 통합
+                SELECT account_id, 
+                       transaction_date,
+                       CASE WHEN type IN ('INCOME') THEN transaction_amount ELSE -transaction_amount END as change
+                FROM "transaction" 
+                WHERE account_id IS NOT NULL
+                UNION ALL
+                SELECT linked_account_id, 
+                       transaction_date,
+                       CASE WHEN type = 'INVEST' THEN transaction_amount ELSE -transaction_amount END as change
+                FROM "transaction" 
+                WHERE linked_account_id IS NOT NULL AND type IN ('INVEST', 'TRANSFER')
+                """
+
+        all_changes_df = pd.read_sql_query(query, conn, parse_dates=['transaction_date'])
+
+        # 초기 잔액 데이터를 거래 변동 데이터와 동일한 형태로 만듦
+        initial_balances_df = accounts_df.rename(columns={
+            'id': 'account_id',
+            'initial_balance_date': 'transaction_date',
+            'initial_balance': 'change'
+        })[['account_id', 'transaction_date', 'change']]
+
+        # 모든 변동 내역을 하나로 합침
+        full_history = pd.concat([all_changes_df, initial_balances_df]).sort_values('transaction_date')
+        full_history['change'].fillna(0, inplace=True)
+
+        # --- 여기가 수정된 최종 로직입니다 ---
+        # 1. 계좌별로 누적 합계를 계산하여, 각 거래 시점의 잔액을 구함
+        full_history['balance'] = full_history.groupby('account_id')['change'].cumsum()
+
+        # 2. 날짜를 인덱스로 설정하고, 월말(Month-End) 기준으로 리샘플링
+        full_history.set_index('transaction_date', inplace=True)
+        monthly_balances = full_history.groupby('account_id')['balance'].resample('M').last()
+
+        # 3. pivot_table을 사용해 최종 보고서 형태로 변환
+        report_df = monthly_balances.reset_index().pivot_table(
+            index='account_id',
+            columns='transaction_date',
+            values='balance'
+        )
+
+        # 4. 계좌 ID를 계좌 이름으로 변경
+        id_to_name_map = accounts_df.set_index('id')['name'].to_dict()
+        report_df.rename(index=id_to_name_map, inplace=True)
+
+        # 5. 거래가 없던 달의 잔액을 이전 달 잔액으로 채우기
+        report_df.ffill(axis=1, inplace=True)
+        report_df.columns = report_df.columns.strftime('%Y/%m')
+
+        # 6. 해당 연도의 모든 월 컬럼이 표시되도록 reindex
+        all_months_of_year = [f"{year}/{str(m).zfill(2)}" for m in range(1, 13)]
+        report_df = report_df.reindex(columns=all_months_of_year).fillna(0)
+
+        return report_df.astype(np.int64)

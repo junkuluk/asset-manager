@@ -4,6 +4,8 @@ import sqlite3
 
 import numpy as np
 import pandas as pd
+import sys
+import os
 
 import config
 from analysis import run_rule_engine, identify_transfers
@@ -16,6 +18,7 @@ def _parse_shinhan(filepath):
     columns_map = {'카드구분': 'card_type', '거래일': 'transaction_date', '가맹점명': 'content', '금액': 'transaction_amount', '이용카드': 'card_name', '승인번호': 'card_approval_number'}
     df.rename(columns=columns_map, inplace=True)
     df['transaction_provider'] = 'SHINHAN_CARD'
+    df['cotent2'] = ''
     return df
 
 def _parse_kookmin(filepath):
@@ -24,6 +27,7 @@ def _parse_kookmin(filepath):
     df = pd.read_excel(filepath, skiprows=6, usecols=use_cols, names=standard_names)
     df['card_type'] = '신용'
     df['transaction_provider'] = 'KUKMIN_CARD'
+    df['cotent2'] = ''
     return df
 
 CARD_PARSERS = {
@@ -180,6 +184,7 @@ def insert_bank_transactions_from_excel(filepath, db_path=config.DB_PATH):
             df['amount'] = df['입금'].fillna(0) - df['출금'].fillna(0)
             df['transaction_amount'] = df['amount'].abs().astype(int)
             df['content'] = df['내용'].astype(str)
+            df['content2']= df['적요'].astype(str)
 
             # 이체 판별 엔진 실행: linked_account_id의 Series를 반환
             linked_account_id_series = identify_transfers(df, db_path)
