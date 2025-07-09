@@ -13,4 +13,5 @@ DB_PATH = os.path.join(STATIC_DIR, 'asset_data.db')
 RULES_PATH = os.path.join(STATIC_DIR, 'initial_rules.json')
 TRANSFER_RULES_PATH = os.path.join(STATIC_DIR, 'initial_transfer_rules.json')
 
-SCHEMA_PATH = os.path.join(BASE_DIR, 'migrations')
+APP_DIR = os.path.join(BASE_DIR, 'application')
+SCHEMA_PATH = os.path.join(APP_DIR, 'migrations')
