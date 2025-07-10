@@ -49,14 +49,15 @@ CARD_PARSERS = {"shinhan": _parse_shinhan, "kookmin": _parse_kookmin}
 
 
 def insert_card_transactions_from_excel(filepath):
-    """
-    카드사 엑셀 파일을 읽어 거래 내역을 DB에 삽입합니다.
-    트랜잭션 처리를 위해 conn.session.begin()을 사용하도록 수정되었습니다.
-    """
+
     filename = os.path.basename(
         filepath.name if hasattr(filepath, "name") else filepath
     )
-    card_company = next((key for key in CARD_PARSERS if key in filename.lower()), None)
+
+    # card_company = next((key for key in CARD_PARSERS if key in filename.lower()), None)
+    card_company = next(
+        (key for key in CARD_PARSERS if key in filename.lower()), "kookmin"
+    )
 
     if not card_company:
         st.error(f"지원하지 않는 카드사 파일입니다: {filename}")
@@ -177,6 +178,10 @@ def insert_card_transactions_from_excel(filepath):
                     },
                 )
                 inserted_rows += 1
+
+            # ✅ [수정] 모든 루프가 성공적으로 끝나면 최종 커밋
+            s.commit()
+            print("커밋 성공!")
     except Exception as e:
         st.error(f"데이터 삽입 중 오류 발생: {e}")
         return 0, 0
@@ -329,28 +334,33 @@ def insert_bank_transactions_from_excel(filepath):
                 reason = f"거래 ID {transaction_id}: {content}"
                 if row["type"] == "INCOME":
                     update_balance_and_log(
-                        bank_account_id, change_amount, reason, session=s
+                        int(bank_account_id), change_amount, reason, session=s
                     )
                 elif row["type"] == "EXPENSE":
                     update_balance_and_log(
-                        bank_account_id, -change_amount, reason, session=s
+                        int(bank_account_id), -change_amount, reason, session=s
                     )
                 elif row["type"] == "TRANSFER":
                     update_balance_and_log(
-                        bank_account_id,
+                        int(bank_account_id),
                         -change_amount,
                         f"이체 출금: {reason}",
                         session=s,
                     )
                     if linked_id:
                         update_balance_and_log(
-                            linked_id,
+                            int(linked_id),
                             change_amount,
                             f"이체 입금: {reason}",
                             session=s,
                         )
 
                 inserted_count += 1
+
+            # ✅ [수정] 모든 루프가 성공적으로 끝나면 최종 커밋
+            print(f"{inserted_count}건의 데이터 처리 완료. 커밋을 시도합니다...")
+            s.commit()
+            print("커밋 성공!")
 
         return inserted_count, skipped_count
 
