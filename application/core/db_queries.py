@@ -521,35 +521,42 @@ def get_annual_summary_data(year: int):
 
 
 def get_annual_asset_summary(year: int):
-    """연간 자산 요약 데이터를 생성합니다."""
+    """
+    연간 자산 요약 데이터를 생성합니다. (SQLite 원본 기반, PostgreSQL 용으로 수정)
+    """
     conn = st.connection("supabase", type="sql")
 
     try:
-        # <<< 수정 사항: text() 제거 (고정 문자열) >>>
+        # 1. 모든 계좌의 기본 정보(초기 잔액 포함)를 가져옴
+        # (변경점: 날짜 함수를 PostgreSQL에 맞게 수정)
         accounts_df = conn.query(
             """
             SELECT id, name, initial_balance, '1777-01-01 00:00:00'::timestamp as initial_balance_date 
             FROM accounts
-        """,
+            """,
             parse_dates=["initial_balance_date"],
             ttl=0,
         )
         if accounts_df.empty:
             return pd.DataFrame()
 
+        accounts_df["initial_balance_date"] = accounts_df[
+            "initial_balance_date"
+        ].dt.tz_localize("UTC")
+
+        # 2. 모든 거래 내역을 통합하여 계좌별 증감 내역을 만듦
+        # (변경점: 연도 필터링 로직 추가 및 파라미터 바인딩 사용)
         query = """
             SELECT account_id, transaction_date,
-                    CASE WHEN type IN ('INCOME') THEN transaction_amount 
-                         WHEN type IN ('EXPENSE') THEN -transaction_amount
-                         ELSE 0 END as change
-            FROM "transaction" WHERE account_id IS NOT NULL AND to_char(transaction_date, 'YYYY') = :year_str
+                   CASE WHEN type IN ('INCOME') THEN transaction_amount ELSE -transaction_amount END as change
+            FROM "transaction"
+            WHERE account_id IS NOT NULL AND to_char(transaction_date, 'YYYY') = :year_str
             UNION ALL
-            SELECT linked_account_id as account_id, transaction_date,
-                    CASE WHEN type IN ('INVEST', 'TRANSFER') THEN transaction_amount
-                         ELSE 0 END as change
-            FROM "transaction" WHERE linked_account_id IS NOT NULL AND to_char(transaction_date, 'YYYY') = :year_str
+            SELECT linked_account_id, transaction_date,
+                   CASE WHEN type = 'INVEST' THEN transaction_amount ELSE -transaction_amount END as change
+            FROM "transaction"
+            WHERE linked_account_id IS NOT NULL AND type IN ('INVEST', 'TRANSFER') AND to_char(transaction_date, 'YYYY') = :year_str
         """
-        # <<< 수정 사항: text(query) 대신 query 직접 전달 >>>
         all_changes_df = conn.query(
             query,
             params={"year_str": str(year)},
@@ -557,6 +564,7 @@ def get_annual_asset_summary(year: int):
             ttl=0,
         )
 
+        # 초기 잔액 데이터를 거래 변동 데이터와 동일한 형태로 만듦
         initial_balances_df = accounts_df.rename(
             columns={
                 "id": "account_id",
@@ -565,80 +573,48 @@ def get_annual_asset_summary(year: int):
             }
         )[["account_id", "transaction_date", "change"]]
 
-        previous_year_changes_query = """
-            SELECT account_id, SUM(CASE WHEN type IN ('INCOME') THEN transaction_amount 
-                                        WHEN type IN ('EXPENSE') THEN -transaction_amount
-                                        ELSE 0 END) as change
-            FROM "transaction" 
-            WHERE account_id IS NOT NULL AND to_char(transaction_date, 'YYYY') < :year_str
-            GROUP BY account_id
-            UNION ALL
-            SELECT linked_account_id as account_id, SUM(CASE WHEN type IN ('INVEST', 'TRANSFER') THEN transaction_amount
-                                        ELSE 0 END) as change
-            FROM "transaction" 
-            WHERE linked_account_id IS NOT NULL AND to_char(transaction_date, 'YYYY') < :year_str
-            GROUP BY linked_account_id
-        """
-        # <<< 수정 사항: text(previous_year_changes_query) 대신 previous_year_changes_query 직접 전달 >>>
-        previous_year_changes_df = conn.query(
-            previous_year_changes_query, params={"year_str": str(year)}, ttl=0
+        # 모든 변동 내역을 하나로 합침
+        full_history = pd.concat([all_changes_df, initial_balances_df]).sort_values(
+            "transaction_date"
         )
-
-        initial_balances_at_year_start = (
-            initial_balances_df.groupby("account_id")["change"].sum().reset_index()
-        )
-        if not previous_year_changes_df.empty:
-            initial_balances_at_year_start = pd.merge(
-                initial_balances_at_year_start,
-                previous_year_changes_df,
-                on="account_id",
-                how="left",
-                suffixes=("_initial", "_prev_year"),
-            ).fillna(0)
-            initial_balances_at_year_start["change"] = (
-                initial_balances_at_year_start["change_initial"]
-                + initial_balances_at_year_start["change_prev_year"]
-            )
-
-        initial_balances_at_year_start["transaction_date"] = pd.to_datetime(
-            f"{year}-01-01"
-        )
-        initial_balances_at_year_start = initial_balances_at_year_start[
-            ["account_id", "transaction_date", "change"]
-        ]
-
-        full_history = pd.concat(
-            [all_changes_df, initial_balances_at_year_start]
-        ).sort_values(["account_id", "transaction_date"])
-
         full_history["change"] = full_history["change"].fillna(0)
 
+        # --- Pandas 로직 (기존과 동일) ---
+        # 1. 계좌별로 누적 합계를 계산
         full_history["balance"] = full_history.groupby("account_id")["change"].cumsum()
 
-        full_history = full_history[full_history["transaction_date"].dt.year == year]
-
+        # 2. 날짜를 인덱스로 설정하고, 월말(Month-End) 기준으로 리샘플링
         full_history.set_index("transaction_date", inplace=True)
         monthly_balances = (
             full_history.groupby("account_id")["balance"].resample("M").last()
         )
 
-        report_df = monthly_balances.reset_index().pivot_table(
-            index="account_id", columns="transaction_date", values="balance"
-        )
+        # ▼▼▼▼▼ 에러 해결을 위한 핵심 수정 부분 ▼▼▼▼▼
+        report_df_source = monthly_balances.reset_index()
+        # 3. 'transaction_date'를 'YYYY/MM' 형식의 **문자열** 컬럼으로 변환
+        report_df_source["year_month"] = report_df_source[
+            "transaction_date"
+        ].dt.strftime("%Y/%m")
 
+        # 4. 새로 만든 'year_month' 문자열 컬럼으로 피벗
+        report_df = report_df_source.pivot_table(
+            index="account_id", columns="year_month", values="balance"
+        )
+        # ▲▲▲▲▲ 에러 해결을 위한 핵심 수정 부분 ▲▲▲▲▲
+
+        # 5. 계좌 ID를 계좌 이름으로 변경
         id_to_name_map = accounts_df.set_index("id")["name"].to_dict()
         report_df.rename(index=id_to_name_map, inplace=True)
+
+        # 6. 거래가 없던 달의 잔액을 이전 달 잔액으로 채우기
         report_df.ffill(axis=1, inplace=True)
-        report_df.columns = report_df.columns.strftime("%Y/%m")
 
-        all_months_of_year = [f"{year}/{m:02d}" for m in range(1, 13)]
-        report_df = (
-            report_df.reindex(columns=all_months_of_year)
-            .fillna(method="ffill", axis=1)
-            .fillna(0)
-        )
+        # 7. 해당 연도의 모든 월 컬럼이 표시되도록 reindex
+        all_months_of_year = [f"{year}/{str(m).zfill(2)}" for m in range(1, 13)]
+        report_df = report_df.reindex(columns=all_months_of_year).fillna(0)
 
-        return report_df.astype("int64")
+        return report_df.astype(np.int64)
+
     except Exception as e:
         st.error(f"연간 자산 요약 데이터 로드 오류: {e}")
         return pd.DataFrame()

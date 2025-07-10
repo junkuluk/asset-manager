@@ -497,6 +497,8 @@ def recategorize_uncategorized():
             for _, row in updates_df.iterrows()
         ]
 
+        print(update_params)
+
         if update_params:
             s.execute(
                 text(
