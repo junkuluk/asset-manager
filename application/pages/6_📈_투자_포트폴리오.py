@@ -10,12 +10,14 @@ from core.db_queries import (
     get_balance_history,
     get_init_balance,
 )
-from core.ui_utils import apply_common_styles, authenticate_user
+from core.ui_utils import apply_common_styles, authenticate_user, logout_button
 
 apply_common_styles()
 
 if not authenticate_user():
     st.stop()
+
+logout_button()
 
 st.set_page_config(layout="wide", page_title="투자 포트폴리오")
 st.title("📈 투자 포트폴리오")
@@ -73,10 +75,17 @@ else:
     with col2:
         st.subheader(f"'{selected_asset_name}' 변동 이력")
 
-        b, i = get_init_balance(int(selected_asset_id))
-        st.write(
-            f"**선택된 계좌의 초기/거래 금액:** `{int(i):,}`/`{int(b):,}` **선택된 계좌의 현 잔액:** `{int(b) + int(i):,}`"
-        )
+        result = get_init_balance(int(selected_asset_id))
+        if result is not None:
+            balance, init_balance = result
+            st.write(
+                f"**선택된 계좌의 초기/거래 금액:** `{int(init_balance):,}`/`{int(balance):,}` **선택된 계좌의 현 잔액:** `{int(balance) + int(init_balance):,}`"
+            )
+        else:
+            st.error(
+                f"계좌(ID: {selected_asset_id})에 대한 잔액 정보를 가져올 수 없습니다."
+            )
+
         # 2. 선택된 자산의 잔액 변경 히스토리 조회
         history_df = get_balance_history(int(selected_asset_id))
 

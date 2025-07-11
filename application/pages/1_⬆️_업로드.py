@@ -5,12 +5,14 @@ from core.data_processor import (
     insert_card_transactions_from_excel,
     insert_bank_transactions_from_excel,
 )
-from core.ui_utils import apply_common_styles, authenticate_user
+from core.ui_utils import apply_common_styles, authenticate_user, logout_button
 
 apply_common_styles()
 
 if not authenticate_user():
     st.stop()
+
+logout_button()
 
 st.set_page_config(layout="wide", page_title="📈 신규 거래내역 업로드")
 

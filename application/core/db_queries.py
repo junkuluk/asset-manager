@@ -1,6 +1,7 @@
 import streamlit as st
 import numpy as np
 import pandas as pd
+from typing import Optional
 from sqlalchemy import (
     text,
 )  # SQLAlchemy text 함수를 명시적으로 임포트 (더 이상 직접 사용하지는 않음)
@@ -9,7 +10,10 @@ import config
 
 
 def load_data_from_db(
-    start_date, end_date, transaction_types: list = None, cat_types: list = None
+    start_date,
+    end_date,
+    transaction_types: list | None = None,
+    cat_types: list | None = None,
 ):
     """기간과 타입에 맞는 거래 내역을 데이터베이스에서 불러옵니다."""
     conn = st.connection("supabase", type="sql")
@@ -50,7 +54,9 @@ def load_data_from_db(
     return df
 
 
-def get_all_categories(category_type: str = None, include_top_level: bool = False):
+def get_all_categories(
+    category_type: Optional[str] = None, include_top_level: bool = False
+):
     """조건에 맞는 모든 카테고리를 사전 형태로 반환합니다."""
     conn = st.connection("supabase", type="sql")
     query_parts = ["SELECT id, description FROM category"]
@@ -326,7 +332,7 @@ def get_account_id_by_name(account_name):
     return df["id"].iloc[0] if not df.empty else None
 
 
-def get_all_accounts(account_type: str = None):
+def get_all_accounts(account_type: Optional[str] = None):
     """계좌 목록을 사전 형태로 반환합니다."""
     conn = st.connection("supabase", type="sql")
     query = "SELECT id, name FROM accounts"
@@ -463,7 +469,7 @@ def get_monthly_summary_for_dashboard():
     else:
         summary_df = asset_balance_df
 
-    summary_df = summary_df.sort_values("연월").fillna(method="ffill").fillna(0)
+    summary_df = summary_df.sort_values("연월").ffill().fillna(0)
     return summary_df
 
 

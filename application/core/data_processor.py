@@ -5,16 +5,14 @@ import numpy as np
 import pandas as pd
 from sqlalchemy import text
 
-# 다른 모듈들은 이미 올바르게 수정되었다고 가정합니다.
 import config
 from analysis import run_rule_engine, identify_transfers
 from core.db_manager import update_balance_and_log
 from core.db_queries import get_account_id_by_name
 
 
-# --- 엑셀 파서 정의 (변경 없음) ---
 def _parse_shinhan(filepath):
-    """신한카드 엑셀 파일을 파싱합니다."""
+    """신한카드 엑셀 파일"""
     df = pd.read_excel(filepath)
     columns_map = {
         "카드구분": "card_type",
@@ -30,7 +28,7 @@ def _parse_shinhan(filepath):
 
 
 def _parse_kookmin(filepath):
-    """국민카드 엑셀 파일을 파싱합니다."""
+    """국민카드 엑셀 파일"""
     use_cols = [0, 3, 4, 5, 13]
     standard_names = [
         "transaction_date",

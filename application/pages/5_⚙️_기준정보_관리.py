@@ -11,7 +11,7 @@ from core.db_manager import (
     update_balance_and_log,
     add_new_account,
     reclassify_all_transfers,
-    recategorize_uncategorized,
+    re_categorize_un_categorized,
     update_init_balance_and_log,
 )
 from core.db_queries import (
@@ -23,12 +23,16 @@ from core.db_queries import (
     get_all_accounts_df,
     get_init_balance,
 )
-from core.ui_utils import apply_common_styles, authenticate_user
+from core.ui_utils import apply_common_styles, authenticate_user, logout_button
+
+from analysis import run_engine_and_update_db_final
 
 apply_common_styles()
 
 if not authenticate_user():
     st.stop()
+
+logout_button()
 
 st.set_page_config(layout="wide", page_title="기준정보 관리")
 st.title("⚙️ 기준정보 관리")
@@ -91,7 +95,7 @@ with col3:
             parent_cat_id = parent_desc_to_id.get(parent_cat_desc)
             # 타입은 session_state에서 직접 가져옴
             final_cat_type = st.session_state.selected_category_type
-
+            assert parent_cat_id is not None
             if all([parent_cat_id, new_cat_code, new_cat_desc, final_cat_type]):
                 success, message = add_new_category(
                     parent_cat_id, new_cat_code.upper(), new_cat_desc, final_cat_type
@@ -192,13 +196,19 @@ if account_names:
         st.write("##### 거래 내역 조정 이력")
         # 선택된 계좌의 조정 히스토리를 보여줌
         selected_id = accounts_map[st.session_state.selected_account_for_adj]
-        print(selected_id)
-        balance, init_balance = get_init_balance(selected_id)
-        st.write(
-            f"**선택된 계좌의 초기/거래 금액:** `{int(init_balance):,}`/`{int(balance):,}` **선택된 계좌의 현 잔액:** `{int(balance) + int(init_balance):,}`"
-        )
-        history_df = get_balance_history(selected_id)
-        st.dataframe(history_df, use_container_width=True)
+
+        result = get_init_balance(selected_id)
+
+        if result is not None:
+            balance, init_balance = result
+            st.write(
+                f"**선택된 계좌의 초기/거래 금액:** `{int(init_balance):,}`/`{int(balance):,}` **선택된 계좌의 현 잔액:** `{int(balance) + int(init_balance):,}`"
+            )
+            history_df = get_balance_history(selected_id)
+            st.dataframe(history_df, use_container_width=True)
+        else:
+            st.error(f"계좌(ID: {selected_id})에 대한 잔액 정보를 가져올 수 없습니다.")
+
 else:
     st.warning("먼저 계좌를 등록해주세요.")
 
@@ -267,5 +277,5 @@ with st.expander("규칙 엔진 전체 재적용"):
 
     if st.button("'미분류' 거래 카테고리 재적용"):
         with st.spinner("미분류 거래에 대해 카테고리 규칙을 실행 중입니다..."):
-            message = recategorize_uncategorized()
+            message = run_engine_and_update_db_final()
             st.success(message)

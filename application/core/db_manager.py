@@ -467,7 +467,8 @@ def reclassify_all_transfers():
         return f"총 {len(update_params)}건의 거래를 '이체'로 재분류했습니다."
 
 
-def recategorize_uncategorized():
+# should not be used
+def re_categorize_un_categorized():
     """미분류된 거래 내역에 대해 규칙 엔진을 다시 실행하여 카테고리를 재분류합니다."""
     conn = st.connection("supabase", type="sql")
     with conn.session as s:
@@ -484,13 +485,19 @@ def recategorize_uncategorized():
             return "카테고리를 재분류할 대상이 없습니다."
 
         default_cat_id = uncategorized_df["category_id"].iloc[0]
+        print("default_cat_id")
+        print(default_cat_id)
         categorized_df = run_rule_engine(uncategorized_df, default_cat_id)
-
+        print("categorized_df")
+        print(categorized_df)
         # 실제로 카테고리가 변경된 내역만 추출
         updates_df = categorized_df[categorized_df["category_id"] != default_cat_id]
 
         if updates_df.empty:
             return "새롭게 분류된 거래가 없습니다."
+        # else:
+        #     print(updates_df)
+        #     return "왜???"
 
         update_params = [
             {"category_id": int(row["category_id"]), "transaction_id": int(row["id"])}

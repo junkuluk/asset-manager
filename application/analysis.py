@@ -2,50 +2,61 @@ import streamlit as st
 import pandas as pd
 import re
 import config
+from sqlalchemy import text
 
 # -------------------------------------------------------------------
 # 1. 개별 조건 평가 함수들 (변경 없음)
 # -------------------------------------------------------------------
 
+
 def _evaluate_contains(series, value):
     """시리즈에 특정 문자열이 포함되는지 확인합니다."""
     return series.astype(str).str.contains(value, na=False, regex=False)
+
 
 def _evaluate_exact(series, value):
     """시리즈의 값이 특정 문자열과 정확히 일치하는지 확인합니다."""
     return series.astype(str).str.strip() == value
 
+
 def _evaluate_regex(series, value):
     """시리즈가 정규식 패턴과 일치하는지 확인합니다."""
-    return series.astype(str).str.contains(value, na=False, regex=True, flags=re.IGNORECASE)
+    return series.astype(str).str.contains(
+        value, na=False, regex=True, flags=re.IGNORECASE
+    )
+
 
 def _evaluate_greater_than(series, value):
     """시리즈의 숫자 값이 특정 값보다 큰지 확인합니다."""
-    return pd.to_numeric(series, errors='coerce') > int(value)
+    return pd.to_numeric(series, errors="coerce") > int(value)
+
 
 def _evaluate_less_than(series, value):
     """시리즈의 숫자 값이 특정 값보다 작은지 확인합니다."""
-    return pd.to_numeric(series, errors='coerce') < int(value)
+    return pd.to_numeric(series, errors="coerce") < int(value)
+
 
 def _evaluate_equals(series, value):
     """시리즈의 숫자 값이 특정 값과 같은지 확인합니다."""
-    return pd.to_numeric(series, errors='coerce').eq(int(value))
+    return pd.to_numeric(series, errors="coerce").eq(int(value))
+
 
 # -------------------------------------------------------------------
 # 2. 매칭 타입과 평가 함수 매핑 (변경 없음)
 # -------------------------------------------------------------------
 CONDITION_EVALUATORS = {
-    'CONTAINS': _evaluate_contains,
-    'EXACT': _evaluate_exact,
-    'REGEX': _evaluate_regex,
-    'GREATER_THAN': _evaluate_greater_than,
-    'LESS_THAN': _evaluate_less_than,
-    'EQUALS': _evaluate_equals
+    "CONTAINS": _evaluate_contains,
+    "EXACT": _evaluate_exact,
+    "REGEX": _evaluate_regex,
+    "GREATER_THAN": _evaluate_greater_than,
+    "LESS_THAN": _evaluate_less_than,
+    "EQUALS": _evaluate_equals,
 }
 
 # -------------------------------------------------------------------
 # 3. 메인 엔진 함수들 (PostgreSQL 및 성능 최적화)
 # -------------------------------------------------------------------
+
 
 def run_rule_engine(df: pd.DataFrame, default_category_id: int) -> pd.DataFrame:
     """
@@ -60,18 +71,18 @@ def run_rule_engine(df: pd.DataFrame, default_category_id: int) -> pd.DataFrame:
     rules_df = conn.query("SELECT * FROM rule ORDER BY priority", ttl=0)
     conditions_df = conn.query("SELECT * FROM rule_condition", ttl=0)
 
-    if 'category_id' not in df.columns:
-        df['category_id'] = default_category_id
-    df['category_id'].fillna(default_category_id, inplace=True)
+    if "category_id" not in df.columns:
+        df["category_id"] = default_category_id
+    df["category_id"].fillna(default_category_id, inplace=True)
 
-    unclassified_mask = (df['category_id'] == default_category_id)
+    unclassified_mask = df["category_id"] == default_category_id
 
     for _, rule in rules_df.iterrows():
         if not unclassified_mask.any():
             break
 
         # 2. DB 대신 Pandas DataFrame에서 조건 필터링
-        rule_conditions = conditions_df[conditions_df['rule_id'] == rule['id']]
+        rule_conditions = conditions_df[conditions_df["rule_id"] == rule["id"]]
         if rule_conditions.empty:
             continue
 
@@ -79,29 +90,30 @@ def run_rule_engine(df: pd.DataFrame, default_category_id: int) -> pd.DataFrame:
         combined_conditions_mask = pd.Series(True, index=df.index)
 
         for _, cond in rule_conditions.iterrows():
-            column = cond['column_to_check']
-            value = cond['value']
-            match_type = cond['match_type'].strip()
-            
+            column = cond["column_to_check"]
+            value = cond["value"]
+            match_type = cond["match_type"].strip()
+
             eval_func = CONDITION_EVALUATORS.get(match_type)
             if not eval_func or column not in df.columns:
                 # 지원하지 않는 함수나 존재하지 않는 컬럼이면, 이 규칙은 적용 불가
                 combined_conditions_mask = pd.Series(False, index=df.index)
                 break
-            
+
             # 각 조건의 결과를 AND 연산으로 누적
             combined_conditions_mask &= eval_func(df[column], value)
-        
+
         # 최종적으로 분류할 행 = 아직 분류되지 않았고(unclassified) && 모든 조건을 만족하는(combined) 행
         final_mask_to_apply = unclassified_mask & combined_conditions_mask
-        df.loc[final_mask_to_apply, 'category_id'] = rule['category_id']
-        
+        df.loc[final_mask_to_apply, "category_id"] = rule["category_id"]
+
         # 분류된 행은 다음 규칙의 대상에서 제외
         unclassified_mask &= ~final_mask_to_apply
 
     return df
 
 
+# 사용하지 않음
 def run_engine_and_update_db():
     """DB의 모든 거래내역을 재분류하고 결과를 다시 DB에 업데이트합니다."""
     print("DB 전체 재분류를 시작합니다...")
@@ -113,35 +125,69 @@ def run_engine_and_update_db():
         return 0
 
     # 미분류 카테고리 ID를 DB에서 조회
-    uncategorized_df = conn.query("SELECT id FROM category WHERE category_code = 'UNCATEGORIZED' AND category_type = 'EXPENSE' LIMIT 1", ttl=0)
-    default_cat_id = uncategorized_df['id'].iloc[0] if not uncategorized_df.empty else -1 # 기본값 설정
-
+    uncategorized_df = conn.query(
+        "SELECT id FROM category WHERE category_code = 'UNCATEGORIZED' AND category_type in ('EXPENSE','INCOME')",
+        ttl=0,
+    )
+    print("uncategorized_df")
+    print(uncategorized_df)
+    default_cat_id = (
+        uncategorized_df["id"].iloc[0] if not uncategorized_df.empty else -1
+    )  # 기본값 설정
+    print("default_cat_id")
+    print(default_cat_id)
     # 규칙 엔진 실행
     categorized_df = run_rule_engine(df.copy(), default_category_id=default_cat_id)
-
+    print("categorized_df")
+    print(categorized_df)
     # 변경된 내용만 필터링
-    update_data = categorized_df[df['category_id'] != categorized_df['category_id']][['id', 'category_id']]
+    update_data = categorized_df[df["category_id"] != categorized_df["category_id"]][
+        ["id", "category_id"]
+    ]
     if update_data.empty:
         print("업데이트할 내용이 없습니다.")
         return 0
+    else:
+        print("업데이트할 내용있다.")
+        print(update_data)
+        return 0
 
     print(f"업데이트 대상 {len(update_data)}건 발견...")
-    
+
     # DB 업데이트 (트랜잭션 사용)
     updated_rows = 0
+    stmt = text('UPDATE "transaction" SET category_id = :category_id WHERE id = :id')
+    session = conn.session
+
     try:
-        with conn.session.begin() as s:
+        # 3. 세션을 통해 트랜잭션 시작
+        with session.begin():
+            # 원본 코드의 for 루프 구조를 그대로 유지
             for _, row in update_data.iterrows():
-                result = s.execute(
-                    'UPDATE "transaction" SET category_id = %s WHERE id = %s',
-                    (int(row['category_id']), int(row['id']))
+                result = session.execute(
+                    stmt, {"category_id": int(row["category_id"]), "id": int(row["id"])}
                 )
-                updated_rows += result.rowcount
+                updated_rows += result.rowcount  # type: ignore
+
         print(f"총 {updated_rows}건의 카테고리가 업데이트되었습니다.")
-        return updated_rows
+        # return updated_rows
     except Exception as e:
         print(f"DB 업데이트 중 오류 발생: {e}")
-        return 0
+        # return 0
+
+    # try:
+    #     with conn.session.begin() as s:
+    #         for _, row in update_data.iterrows():
+    #             result = s.execute(
+    #                 'UPDATE "transaction" SET category_id = %s WHERE id = %s',
+    #                 (int(row['category_id']), int(row['id']))
+    #             )
+    #             updated_rows += result.rowcount
+    #     print(f"총 {updated_rows}건의 카테고리가 업데이트되었습니다.")
+    #     return updated_rows
+    # except Exception as e:
+    #     print(f"DB 업데이트 중 오류 발생: {e}")
+    #     return 0
 
 
 def identify_transfers(df: pd.DataFrame) -> pd.Series:
@@ -150,14 +196,14 @@ def identify_transfers(df: pd.DataFrame) -> pd.Series:
     N+1 쿼리 문제를 해결하여 성능을 최적화했습니다.
     """
     if df.empty:
-        return pd.Series(dtype='int')
+        return pd.Series(dtype="int")
 
     conn = st.connection("supabase", type="sql")
     # 1. 모든 이체 규칙과 조건을 한 번에 로드
     rules_df = conn.query("SELECT * FROM transfer_rule ORDER BY priority", ttl=0)
     conditions_df = conn.query("SELECT * FROM transfer_rule_condition", ttl=0)
 
-    final_linked_ids = pd.Series(0, index=df.index, dtype='int')
+    final_linked_ids = pd.Series(0, index=df.index, dtype="int")
     unidentified_mask = pd.Series(True, index=df.index)
 
     for _, rule in rules_df.iterrows():
@@ -165,24 +211,119 @@ def identify_transfers(df: pd.DataFrame) -> pd.Series:
             break
 
         # 2. DB 대신 Pandas DataFrame에서 조건 필터링
-        rule_conditions = conditions_df[conditions_df['rule_id'] == rule['id']]
+        rule_conditions = conditions_df[conditions_df["rule_id"] == rule["id"]]
         if rule_conditions.empty:
             continue
 
         combined_conditions_mask = pd.Series(True, index=df.index)
         for _, cond in rule_conditions.iterrows():
-            column, match_type, value = cond['column_to_check'], cond['match_type'], cond['value']
-            
+            column, match_type, value = (
+                cond["column_to_check"],
+                cond["match_type"],
+                cond["value"],
+            )
+
             eval_func = CONDITION_EVALUATORS.get(match_type)
             if not eval_func or column not in df.columns:
                 combined_conditions_mask = pd.Series(False, index=df.index)
                 break
-                
+
             combined_conditions_mask &= eval_func(df[column], value)
-        
+
         mask_to_apply = unidentified_mask & combined_conditions_mask
         if mask_to_apply.any():
-            final_linked_ids.loc[mask_to_apply] = rule['linked_account_id']
+            final_linked_ids.loc[mask_to_apply] = rule["linked_account_id"]
             unidentified_mask &= ~mask_to_apply
 
     return final_linked_ids
+
+
+def run_engine_and_update_db_final():
+    """DB의 모든 거래내역을 재분류하고 결과를 다시 DB에 업데이트합니다."""
+    print("DB 전체 재분류를 시작합니다...")
+    conn = st.connection("supabase", type="sql")
+    message = ""
+    with conn.session as s:
+        query = text(
+            """
+            SELECT t.* FROM "transaction" t
+            JOIN category c ON t.category_id = c.id
+            WHERE c.category_code = 'UNCATEGORIZED' AND t.is_manual_category = false AND category_type in ('EXPENSE')
+        """
+        )
+
+        df_expense = pd.DataFrame(s.execute(query).mappings().all())
+
+        if df_expense.empty:
+            message += "지출 카테고리를 재분류할 대상이 없습니다.\n"
+        else:
+
+            default_expense_cat_id = df_expense["category_id"].iloc[0]
+            categorized_expense_df = run_rule_engine(df_expense, default_expense_cat_id)
+            updates_expense_df = categorized_expense_df[
+                categorized_expense_df["category_id"] != default_expense_cat_id
+            ]
+
+            if updates_expense_df.empty:
+                message += "새롭게 분류된 지출 거래가 없습니다.\n"
+            else:
+                update__expense_params = [
+                    {
+                        "category_id": int(row["category_id"]),
+                        "transaction_id": int(row["id"]),
+                    }
+                    for _, row in updates_expense_df.iterrows()
+                ]
+
+                if update__expense_params:
+                    s.execute(
+                        text(
+                            'UPDATE "transaction" SET category_id = :category_id WHERE id = :transaction_id'
+                        ),
+                        update__expense_params,
+                    )
+                s.commit()
+                message += f"총 {len(update__expense_params)}건의 지출 거래에 카테고리 규칙을 재적용했습니다.\n"
+
+        query = text(
+            """
+            SELECT t.* FROM "transaction" t
+            JOIN category c ON t.category_id = c.id
+            WHERE c.category_code = 'UNCATEGORIZED' AND t.is_manual_category = false AND category_type in ('INCOME')
+        """
+        )
+
+        df_income = pd.DataFrame(s.execute(query).mappings().all())
+
+        if df_income.empty:
+            message += "수입 카테고리를 재분류할 대상이 없습니다.\n"
+            return message
+        else:
+            default_income_cat_id = df_income["category_id"].iloc[0]
+            categorized_income_df = run_rule_engine(df_income, default_income_cat_id)
+            updates_income_df = categorized_income_df[
+                categorized_income_df["category_id"] != default_income_cat_id
+            ]
+
+            if updates_income_df.empty:
+                message += "새롭게 분류된 수입 거래가 없습니다.\n"
+                return message
+            else:
+                update__income_params = [
+                    {
+                        "category_id": int(row["category_id"]),
+                        "transaction_id": int(row["id"]),
+                    }
+                    for _, row in updates_income_df.iterrows()
+                ]
+
+                if update__income_params:
+                    s.execute(
+                        text(
+                            'UPDATE "transaction" SET category_id = :category_id WHERE id = :transaction_id'
+                        ),
+                        update__income_params,
+                    )
+                s.commit()
+                message += f"총 {len(update__income_params)}건의 수입 거래에 카테고리 규칙을 재적용했습니다.\n"
+                return message
