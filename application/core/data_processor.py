@@ -108,8 +108,9 @@ def insert_card_transactions_from_excel(filepath):
 
     inserted_rows = 0
     skipped_rows = 0
-    try:
-        with conn.session as s:
+
+    with conn.session as s:
+        try:
             for _, row in df.iterrows():
                 check_query = text(
                     """
@@ -133,7 +134,7 @@ def insert_card_transactions_from_excel(filepath):
                 insert_trans_query = text(
                     """
                     INSERT INTO "transaction" (type, transaction_type, transaction_provider, category_id,
-                                               transaction_party_id, transaction_date, transaction_amount, content, account_id)
+                                            transaction_party_id, transaction_date, transaction_amount, content, account_id)
                     VALUES (:type, :ttype, :provider, :cat_id, :party_id, :tdate, :amount, :content, :acc_id)
                     RETURNING id
                 """
@@ -173,9 +174,10 @@ def insert_card_transactions_from_excel(filepath):
 
             s.commit()
             print("커밋 성공!")
-    except Exception as e:
-        st.error(f"데이터 삽입 중 오류 발생: {e}")
-        return 0, 0
+        except Exception as e:
+            st.error(f"데이터 삽입 중 오류 발생: {e}")
+            s.rollback()
+            return 0, 0
 
     return inserted_rows, skipped_rows
 
@@ -192,86 +194,80 @@ def insert_bank_transactions_from_excel(filepath):
     inserted_count = 0
     skipped_count = 0
 
-    try:
-        existing_hashes_df = conn.query(
-            "SELECT unique_hash FROM bank_transaction", ttl=0
-        )
-        existing_hashes = set(existing_hashes_df["unique_hash"])
+    existing_hashes_df = conn.query("SELECT unique_hash FROM bank_transaction", ttl=0)
+    existing_hashes = set(existing_hashes_df["unique_hash"])
 
-        bank_account_id = get_account_id_by_name("신한은행-110-227-963599")
-        transfer_cat_id = conn.query(
-            "SELECT id FROM category WHERE category_code = 'TRANSFER'", ttl=0
-        )["id"].iloc[0]
-        default_expense_cat_id = conn.query(
-            "SELECT id FROM category WHERE category_code = 'UNCATEGORIZED' AND category_type ='EXPENSE'",
-            ttl=0,
-        )["id"].iloc[0]
-        default_income_cat_id = conn.query(
-            "SELECT id FROM category WHERE category_code = 'UNCATEGORIZED' AND category_type ='INCOME'",
-            ttl=0,
-        )["id"].iloc[0]
+    bank_account_id = get_account_id_by_name("신한은행-110-227-963599")
+    transfer_cat_id = conn.query(
+        "SELECT id FROM category WHERE category_code = 'TRANSFER'", ttl=0
+    )["id"].iloc[0]
+    default_expense_cat_id = conn.query(
+        "SELECT id FROM category WHERE category_code = 'UNCATEGORIZED' AND category_type ='EXPENSE'",
+        ttl=0,
+    )["id"].iloc[0]
+    default_income_cat_id = conn.query(
+        "SELECT id FROM category WHERE category_code = 'UNCATEGORIZED' AND category_type ='INCOME'",
+        ttl=0,
+    )["id"].iloc[0]
 
-        if not all(
-            [
-                bank_account_id,
-                transfer_cat_id,
-                default_expense_cat_id,
-                default_income_cat_id,
-            ]
-        ):
-            st.error("오류: 필수 계좌 또는 카테고리 ID를 DB에서 찾을 수 없습니다.")
-            return 0, 0
+    if not all(
+        [
+            bank_account_id,
+            transfer_cat_id,
+            default_expense_cat_id,
+            default_income_cat_id,
+        ]
+    ):
+        st.error("오류: 필수 계좌 또는 카테고리 ID를 DB에서 찾을 수 없습니다.")
+        return 0, 0
 
-        df.dropna(subset=["거래일자", "거래시간"], inplace=True)
-        date_str = pd.to_datetime(df["거래일자"]).dt.strftime("%Y-%m-%d")
-        time_str = df["거래시간"].astype(str)
-        out_amount_str = df["출금"].fillna(0).astype(int).astype(str)
-        in_amount_str = df["입금"].fillna(0).astype(int).astype(str)
-        df["unique_hash"] = (
-            date_str + "-" + time_str + "-" + out_amount_str + "-" + in_amount_str
-        ).apply(lambda x: hashlib.sha256(x.encode()).hexdigest())
+    df.dropna(subset=["거래일자", "거래시간"], inplace=True)
+    date_str = pd.to_datetime(df["거래일자"]).dt.strftime("%Y-%m-%d")
+    time_str = df["거래시간"].astype(str)
+    out_amount_str = df["출금"].fillna(0).astype(int).astype(str)
+    in_amount_str = df["입금"].fillna(0).astype(int).astype(str)
+    df["unique_hash"] = (
+        date_str + "-" + time_str + "-" + out_amount_str + "-" + in_amount_str
+    ).apply(lambda x: hashlib.sha256(x.encode()).hexdigest())
 
-        original_rows = len(df)
-        df = df[~df["unique_hash"].isin(existing_hashes)]
-        skipped_count = original_rows - len(df)
-        if df.empty:
-            st.info(
-                f"새로운 데이터가 없습니다. {skipped_count}건은 중복으로 건너뜁니다."
-            )
-            return 0, skipped_count
+    original_rows = len(df)
+    df = df[~df["unique_hash"].isin(existing_hashes)]
+    skipped_count = original_rows - len(df)
+    if df.empty:
+        st.info(f"새로운 데이터가 없습니다. {skipped_count}건은 중복으로 건너뜁니다.")
+        return 0, skipped_count
 
-        df["amount"] = df["입금"].fillna(0) - df["출금"].fillna(0)
-        df["transaction_amount"] = df["amount"].abs().astype(int)
+    df["amount"] = df["입금"].fillna(0) - df["출금"].fillna(0)
+    df["transaction_amount"] = df["amount"].abs().astype(int)
 
-        linked_account_id_series = identify_transfers(df)
-        is_transfer_mask = (linked_account_id_series != 0) & (
-            linked_account_id_series.notna()
-        )
+    linked_account_id_series = identify_transfers(df)
+    is_transfer_mask = (linked_account_id_series != 0) & (
+        linked_account_id_series.notna()
+    )
 
-        df["type"] = np.where(df["amount"] > 0, "INCOME", "EXPENSE")
-        df.loc[is_transfer_mask, "type"] = "TRANSFER"
-        df["category_id"] = np.where(
-            df["type"] == "INCOME", default_income_cat_id, default_expense_cat_id
-        )
-        df.loc[is_transfer_mask, "category_id"] = transfer_cat_id
-        df["linked_account_id"] = linked_account_id_series
+    df["type"] = np.where(df["amount"] > 0, "INCOME", "EXPENSE")
+    df.loc[is_transfer_mask, "type"] = "TRANSFER"
+    df["category_id"] = np.where(
+        df["type"] == "INCOME", default_income_cat_id, default_expense_cat_id
+    )
+    df.loc[is_transfer_mask, "category_id"] = transfer_cat_id
+    df["linked_account_id"] = linked_account_id_series
 
-        expense_income_mask = df["type"] != "TRANSFER"
-        if expense_income_mask.any():
-            df_to_categorize = df[expense_income_mask].copy()
-            categorized_subset = run_rule_engine(
-                df_to_categorize, default_expense_cat_id
-            )
-            df.update(categorized_subset)
+    expense_income_mask = df["type"] != "TRANSFER"
+    if expense_income_mask.any():
+        df_to_categorize = df[expense_income_mask].copy()
+        categorized_subset = run_rule_engine(df_to_categorize, default_expense_cat_id)
+        df.update(categorized_subset)
 
-        assert bank_account_id is not None
+    assert bank_account_id is not None
 
-        with conn.session as s:
+    with conn.session as s:
+        try:
             for _, row in df.iterrows():
                 insert_trans_query = text(
                     """
                     INSERT INTO "transaction" (type, transaction_type, transaction_provider, category_id, transaction_party_id,
-                                               transaction_date, transaction_amount, content, account_id, linked_account_id)
+                                            transaction_date, transaction_amount, content, account_id, linked_account_id)
                     VALUES (:type, 'BANK', 'SHINHAN_BANK', :cat_id, 1, :t_date, :t_amount, :content, :acc_id, :linked_id)
                     RETURNING id
                 """
@@ -343,9 +339,9 @@ def insert_bank_transactions_from_excel(filepath):
             print(f"{inserted_count}건의 데이터 처리 완료. 커밋을 시도합니다...")
             s.commit()
             print("커밋 성공!")
+        except Exception as e:
+            st.error(f"데이터 처리 중 오류 발생: {e}")
+            s.rollback()
+            return 0, 0
 
-        return inserted_count, skipped_count
-
-    except Exception as e:
-        st.error(f"데이터 처리 중 오류 발생: {e}")
-        return 0, 0
+    return inserted_count, skipped_count
