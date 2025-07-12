@@ -21,10 +21,9 @@ summary_df = get_monthly_summary_for_dashboard()
 if summary_df.empty:
     st.warning("분석할 데이터가 충분하지 않습니다.")
 else:
-    # 1. 종합 차트 생성 (이중 축 혼합 차트)
+
     fig = make_subplots(specs=[[{"secondary_y": True}]])
 
-    # 수입/지출 바 차트 (왼쪽 Y축)
     fig.add_trace(
         go.Bar(
             name="수입", x=summary_df["연월"], y=summary_df["수입"], marker_color="blue"
@@ -38,7 +37,6 @@ else:
         secondary_y=False,
     )
 
-    # 총자산 라인 차트 (오른쪽 Y축)
     fig.add_trace(
         go.Scatter(
             name="총자산",
@@ -60,6 +58,5 @@ else:
     fig.update_yaxes(title_text="총자산 (원)", secondary_y=True)
     st.plotly_chart(fig, use_container_width=True)
 
-    # 2. 상세 데이터 테이블
     st.subheader("월별 요약 데이터")
     st.dataframe(summary_df.set_index("연월"), use_container_width=True)

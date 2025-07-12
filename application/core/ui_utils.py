@@ -17,16 +17,13 @@ def apply_common_styles():
     )
 
 
-# 모듈 수준에서 LocalStorage 인스턴스를 한 번만 생성합니다.
 localS = LocalStorage()
 
 
 def authenticate_user():
-    # LocalStorage에서 'username' 값을 가져옵니다.
+
     username = localS.getItem("username")
 
-    # get_item의 반환값은 {'value': '실제값'} 형태의 딕셔너리일 수 있으므로,
-    # 실제 값을 안전하게 추출합니다.
     actual_username = username.get("value") if isinstance(username, dict) else username
 
     if not actual_username:
@@ -38,7 +35,7 @@ def authenticate_user():
 
             if submitted:
                 if password_input == st.secrets.get("password", ""):
-                    # 로그인 성공 시 LocalStorage에 사용자 이름을 저장합니다.
+
                     localS.setItem("username", username_input)
                     st.rerun()
                 else:
@@ -50,9 +47,7 @@ def authenticate_user():
 
 
 def logout_button():
-    """
-    사이드바에 로그아웃 버튼을 표시하고, 클릭 시 LocalStorage에서 사용자 정보를 삭제합니다.
-    """
+
     username = localS.getItem("username")
     actual_username = username.get("value") if isinstance(username, dict) else username
 

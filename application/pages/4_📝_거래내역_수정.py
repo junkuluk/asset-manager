@@ -21,7 +21,7 @@ from core.db_queries import (
 )
 from core.ui_utils import apply_common_styles, authenticate_user, logout_button
 
-# 1. 공통 스타일 적용
+
 apply_common_styles()
 
 if not authenticate_user():
@@ -31,7 +31,7 @@ logout_button()
 
 st.set_page_config(layout="wide", page_title="거래내역 상세 수정")
 
-# 2. Custom CSS (수정)
+
 st.markdown(
     """
 <style>
@@ -48,9 +48,8 @@ st.markdown(
 )
 
 
-# 3. 데이터 로딩 및 상태 관리 함수
 def load_data():
-    """선택된 필터 값을 기준으로 데이터를 로드하여 세션 상태에 저장합니다."""
+
     st.session_state.editor_df = load_data_from_db(
         st.session_state.editor_start_date,
         st.session_state.editor_end_date,
@@ -60,18 +59,16 @@ def load_data():
     st.session_state.original_editor_df = st.session_state.editor_df.copy()
 
 
-# 4. 세션 상태 초기화 (페이지 첫 로딩 시 딱 한 번 실행)
 if "editor_initialized" not in st.session_state:
     today = date.today()
     st.session_state.editor_start_date = today.replace(month=1, day=1)
     st.session_state.editor_end_date = today
     st.session_state.editor_selected_types = ["EXPENSE", "INCOME", "INVEST", "TRANSFER"]
     st.session_state.editor_selected_cat = ["BANK", "CARD"]
-    load_data()  # 초기 데이터 로드
-    st.session_state.editor_initialized = True  # 초기화 완료 플래그 설정
+    load_data()
+    st.session_state.editor_initialized = True
 
 
-# --- UI 렌더링 ---
 st.title("📝 거래 내역 상세 수정")
 st.markdown(
     """
@@ -82,7 +79,7 @@ st.markdown(
 )
 st.markdown("---")
 
-# 5. 필터 UI
+
 col1, col2, col3, col4 = st.columns([1, 1, 3, 2])
 with col1:
     st.date_input("조회 시작일", key="editor_start_date", on_change=load_data)
@@ -103,7 +100,7 @@ with col4:
         on_change=load_data,
     )
 
-# 5. 드롭다운 메뉴를 위한 데이터 로드
+
 expense_categories = get_all_categories(category_type="EXPENSE")
 income_categories = get_all_categories(category_type="INCOME")
 invest_categories = get_all_categories(category_type="INVEST")
@@ -118,11 +115,11 @@ category_name_to_id_map = {v: k for k, v in all_editable_categories.items()}
 party_map = get_all_parties()
 party_desc_to_id_map = {v: k for k, v in party_map.items()}
 
-# 6. 메인 그리드 표시
+
 if st.session_state.editor_df.empty:
     st.warning("선택된 기간/구분에 해당하는 데이터가 없습니다.")
 else:
-    # 동적 카테고리 드롭다운을 위한 JsCode
+
     jscode = JsCode(
         f"""
     function(params) {{
@@ -137,7 +134,6 @@ else:
     )
     editable_cell_style = {"backgroundColor": "#fff9e6"}
 
-    # AgGrid 설정
     gridOptions = {
         "columnDefs": [
             {"field": "id", "headerName": "ID", "width": 80, "editable": False},
@@ -192,7 +188,6 @@ else:
         "rowHeight": 35,
     }
 
-    # AgGrid 실행
     grid_response = AgGrid(
         st.session_state.editor_df,
         gridOptions=gridOptions,
@@ -203,7 +198,6 @@ else:
         theme="streamlit",
     )
 
-    # 변경사항 DB 업데이트 로직
     updated_df = grid_response["data"]
     if updated_df is not None and not st.session_state.original_editor_df.equals(
         updated_df
@@ -255,41 +249,3 @@ else:
 
         except Exception as e:
             st.error(f"데이터 업데이트 중 오류 발생: {e}")
-
-# --- 거래 타입 수동 변경 Expander ---
-# st.markdown("---")
-# with st.expander("🔁 거래 성격 변경 (지출 → 이체/투자)"):
-#     st.write("은행 출금 내역 중 '지출'로 잘못 분류된 항목을 카드값 납부나 투자 이체 등으로 변경합니다.")
-#
-#     start_date, end_date = st.session_state.editor_start_date, st.session_state.editor_end_date
-#     candidate_df = get_bank_expense_transactions(start_date, end_date)
-#
-#     if not candidate_df.empty:
-#         candidate_df['display'] = candidate_df.apply(
-#             lambda r: f"{r['transaction_date']} / {r['content']} / {r['transaction_amount']:,}원", axis=1)
-#         options_map = pd.Series(candidate_df.id.values, index=candidate_df.display).to_dict()
-#
-#         with st.form("reclassify_form"):
-#             selected_display = st.selectbox("변경할 '은행 지출' 거래를 선택하세요:", options=options_map.keys())
-#             all_accounts_map = get_all_accounts()
-#             # 현재 선택된 은행 계좌는 제외
-#             # 이 로직은 현재 모든 은행 거래가 하나의 계좌에서 일어난다고 가정
-#             # del all_accounts_map['신한은행-110-227-963599']
-#
-#             linked_account_name = st.selectbox("이 돈이 어디로 이체되었나요?", options=list(all_accounts_map.keys()))
-#
-#             submitted = st.form_submit_button("거래 성격 변경하기")
-#             if submitted:
-#                 transaction_id = int(options_map[selected_display])
-#                 linked_account_id = all_accounts_map[linked_account_name]
-#
-#                 success, message = reclassify_expense(transaction_id, linked_account_id)
-#                 if success:
-#                     st.toast(f"✅ {message}")
-#                     time.sleep(1)
-#                     load_data()
-#                     st.rerun()
-#                 else:
-#                     st.error(message)
-#     else:
-#         st.info("선택된 기간에 이체로 변경할 '은행 지출' 내역이 없습니다.")

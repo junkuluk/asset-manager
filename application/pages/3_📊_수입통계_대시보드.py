@@ -1,4 +1,3 @@
-# pages/1_📊_통계_대시보드.py
 from datetime import date
 
 import pandas as pd
@@ -13,7 +12,7 @@ from core.db_queries import (
 )
 from core.ui_utils import apply_common_styles, authenticate_user, logout_button
 
-# 1. 공통 스타일 적용 (상단 여백 줄이기 등)
+
 apply_common_styles()
 
 if not authenticate_user():
@@ -25,7 +24,6 @@ st.set_page_config(layout="wide", page_title="계층별 수입 분석")
 st.title("📊 계층별 수입 분석")
 st.markdown("---")
 
-# 2. 그리드 전용 Custom CSS 추가 (헤더, 호버 등)
 st.markdown(
     """
 <style>
@@ -37,7 +35,6 @@ st.markdown(
 )
 
 
-# --- 날짜 선택 UI ---
 today = date.today()
 default_start_date = today.replace(month=1, day=1)
 col1, col2 = st.columns(2)
@@ -50,13 +47,12 @@ if start_date > end_date:
     st.error("시작일은 종료일보다 늦을 수 없습니다.")
     st.stop()
 
-# --- 차트 영역 분할 ---
+
 col_chart1, col_chart2 = st.columns(2)
 with col_chart1:
-    # --- Sunburst 차트 (전체 기간 합계) ---
+
     st.subheader(f"전체 기간 수입 현황 ({start_date} ~ {end_date})")
 
-    # 1. Sunburst 전용 데이터 로더 호출
     sunburst_df = load_data_for_sunburst(
         start_date, end_date, transaction_type="INCOME"
     )
@@ -64,7 +60,7 @@ with col_chart1:
     if sunburst_df.empty:
         st.warning("선택된 기간에 해당하는 지출 데이터가 없습니다.")
     else:
-        # 데이터 타입 정리
+
         sunburst_df["id"] = sunburst_df["id"].astype(str)
         sunburst_df["parent_id"] = (
             pd.to_numeric(sunburst_df["parent_id"], errors="coerce")
@@ -74,7 +70,6 @@ with col_chart1:
         )
         sunburst_df.loc[sunburst_df["parent_id"] == "0", "parent_id"] = ""
 
-        # 3. Sunburst 차트 스타일링
         fig = px.sunburst(
             sunburst_df,
             ids="id",
@@ -82,8 +77,8 @@ with col_chart1:
             names="description",
             values="total_amount",
             branchvalues="total",
-            color="depth",  # 깊이에 따라 색상 구분
-            color_continuous_scale=px.colors.sequential.Blues,  # 파란색 계열로 통일
+            color="depth",
+            color_continuous_scale=px.colors.sequential.Blues,
             hover_name="description",
             hover_data={"total_amount": ":,d"},
         )
@@ -91,7 +86,6 @@ with col_chart1:
         fig.update_traces(textinfo="label+percent parent")
         st.plotly_chart(fig, use_container_width=True)
 
-    # --- 월별 총 지출액 바 차트 ---
     with col_chart2:
         st.subheader(f"월별 총 수입액 추이 ({start_date} ~ {end_date})")
         monthly_spending_df = load_monthly_total_spending(
@@ -117,10 +111,10 @@ with col_chart1:
             st.plotly_chart(fig_bar, use_container_width=True)
 
 st.markdown("---")
-# --- 트리맵 차트 ---
+
 st.subheader("주요 수입 항목 비중 (Treemap)")
 
-# 최하위 카테고리만 필터링
+
 leaf_nodes_df = sunburst_df[
     ~sunburst_df["id"].isin(sunburst_df["parent_id"].unique())
 ].copy()
@@ -136,32 +130,28 @@ fig_treemap.update_layout(margin=dict(t=25, l=0, r=0, b=0))
 fig_treemap.update_traces(texttemplate="%{label}<br>%{value:,.0f}")
 st.plotly_chart(fig_treemap, use_container_width=True)
 
-# --- AgGrid 피벗 테이블 (월별 세부 내역) ---
+
 st.markdown("---")
 st.subheader(f"월별/카테고리별 수입 내역 ({start_date} ~ {end_date})")
 
-# 2. AgGrid 전용 데이터 로더 호출
+
 grid_source_df = load_data_for_pivot_grid(
     start_date, end_date, transaction_type="INCOME"
 )
 
 if not grid_source_df.empty:
-    # --- 여기가 수정된 최종 로직입니다 ---
+
     max_depth = int(grid_source_df["depth"].max())
     level_cols = [f"L{i}" for i in range(1, max_depth + 1)]
 
     grid_source_df[level_cols] = grid_source_df[level_cols].fillna("")
-    # 2. GridOptions 딕셔너리 직접 생성
+
     gridOptions = {
         "columnDefs": [
-            # rowGroup: 이 컬럼들로 계층을 만듭니다.
-            {"field": col, "hide": True, "rowGroup": True}
-            for col in level_cols
+            {"field": col, "hide": True, "rowGroup": True} for col in level_cols
         ]
         + [
-            # pivot: 이 컬럼의 값들을 실제 그리드의 '열'로 만듭니다.
             {"field": "연월", "pivot": True},
-            # aggFunc: 그룹핑 및 피벗 시, 이 컬럼의 값을 합산합니다.
             {
                 "field": "금액",
                 "aggFunc": "sum",
@@ -174,11 +164,9 @@ if not grid_source_df.empty:
             "minWidth": 300,
             "cellRendererParams": {"suppressCount": True},
         },
-        # 피벗 모드 활성화
         "pivotMode": True,
     }
 
-    # 3. 가공하지 않은 원본 데이터를 AgGrid에 직접 전달
     AgGrid(
         grid_source_df,
         gridOptions=gridOptions,

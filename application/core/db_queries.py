@@ -4,9 +4,7 @@ import pandas as pd
 from typing import Optional
 from sqlalchemy import (
     text,
-)  # SQLAlchemy text 함수를 명시적으로 임포트 (더 이상 직접 사용하지는 않음)
-
-import config
+)
 
 
 def load_data_from_db(
@@ -15,7 +13,7 @@ def load_data_from_db(
     transaction_types: list | None = None,
     cat_types: list | None = None,
 ):
-    """기간과 타입에 맞는 거래 내역을 데이터베이스에서 불러옵니다."""
+
     conn = st.connection("supabase", type="sql")
 
     query_parts = [
@@ -45,7 +43,6 @@ def load_data_from_db(
     final_query = " ".join(query_parts)
 
     try:
-        # <<< 수정 사항: text(final_query) 대신 final_query 직접 전달 >>>
         df = conn.query(final_query, params=params, ttl=0)
     except Exception as e:
         st.error(f"데이터 로드 오류: {e}")
@@ -57,7 +54,7 @@ def load_data_from_db(
 def get_all_categories(
     category_type: Optional[str] = None, include_top_level: bool = False
 ):
-    """조건에 맞는 모든 카테고리를 사전 형태로 반환합니다."""
+
     conn = st.connection("supabase", type="sql")
     query_parts = ["SELECT id, description FROM category"]
     conditions = []
@@ -76,7 +73,6 @@ def get_all_categories(
     final_query = " ".join(query_parts)
 
     try:
-        # <<< 수정 사항: text(final_query) 대신 final_query 직접 전달 >>>
         df = conn.query(final_query, params=params, ttl=0)
         return pd.Series(df.description.values, index=df.id).to_dict()
     except Exception as e:
@@ -85,13 +81,11 @@ def get_all_categories(
 
 
 def load_data_for_sunburst(start_date, end_date, transaction_type="EXPENSE"):
-    """Sunburst 차트를 위한 데이터를 로드하고 계층적으로 금액을 집계합니다."""
+
     conn = st.connection("supabase", type="sql")
     try:
         # categories_df = conn.query("SELECT * FROM category", ttl=0) # 이 부분은 query 문자열이 고정이라 괜찮지만, 일관성을 위해 text() 제거
-        categories_df = conn.query(
-            "SELECT * FROM category", ttl=0
-        )  # Streamlit이 내부적으로 처리하므로 text() 필요 없음
+        categories_df = conn.query("SELECT * FROM category", ttl=0)
 
         query = """
             SELECT category_id, SUM(transaction_amount) as direct_amount 
@@ -99,7 +93,6 @@ def load_data_for_sunburst(start_date, end_date, transaction_type="EXPENSE"):
             WHERE type = :transaction_type AND transaction_date::date BETWEEN :start_date AND :end_date 
             GROUP BY category_id
         """
-        # <<< 수정 사항: text(query) 대신 query 직접 전달 >>>
         direct_spending = conn.query(
             query,
             params={
@@ -137,12 +130,11 @@ def load_data_for_sunburst(start_date, end_date, transaction_type="EXPENSE"):
 
 
 def load_data_for_pivot_grid(start_date, end_date, transaction_type="EXPENSE"):
-    """피벗 그리드를 위한 데이터를 로드하고 카테고리 경로를 생성합니다."""
     conn = st.connection("supabase", type="sql")
     try:
         categories_df = conn.query(
             "SELECT id, parent_id, description FROM category", ttl=0
-        )  # text() 제거
+        )
         categories_df["parent_id"] = (
             pd.to_numeric(categories_df["parent_id"], errors="coerce")
             .fillna(0)
@@ -160,7 +152,7 @@ def load_data_for_pivot_grid(start_date, end_date, transaction_type="EXPENSE"):
             JOIN "category" c ON t.category_id = c.id
             WHERE t.type = :transaction_type AND t.transaction_date::date BETWEEN :start_date AND :end_date
         """
-        # <<< 수정 사항: text(query) 대신 query 직접 전달 >>>
+
         df = conn.query(
             query,
             params={
@@ -196,10 +188,10 @@ def load_data_for_pivot_grid(start_date, end_date, transaction_type="EXPENSE"):
 
 
 def get_all_parties():
-    """모든 거래처 정보를 사전 형태로 반환합니다."""
+
     conn = st.connection("supabase", type="sql")
     try:
-        # <<< 수정 사항: text() 제거 (고정 문자열) >>>
+
         df = conn.query(
             "SELECT id, description FROM transaction_party ORDER BY description", ttl=0
         )
@@ -210,7 +202,7 @@ def get_all_parties():
 
 
 def load_monthly_total_spending(start_date, end_date, transaction_type="EXPENSE"):
-    """월별 총 지출/수입 내역을 반환합니다."""
+
     conn = st.connection("supabase", type="sql")
     query = """
         SELECT 
@@ -221,7 +213,7 @@ def load_monthly_total_spending(start_date, end_date, transaction_type="EXPENSE"
         GROUP BY year_month
         ORDER BY year_month;
     """
-    # <<< 수정 사항: text(query) 대신 query 직접 전달 >>>
+
     return conn.query(
         query,
         params={
@@ -234,18 +226,16 @@ def load_monthly_total_spending(start_date, end_date, transaction_type="EXPENSE"
 
 
 def get_all_parties_df():
-    """모든 거래처 정보를 데이터프레임으로 반환합니다."""
+
     conn = st.connection("supabase", type="sql")
-    # <<< 수정 사항: text() 제거 (고정 문자열) >>>
-    return conn.query(
-        "SELECT * FROM transaction_party ORDER BY id", ttl=0
-    )  # ttl=0 추가 (일관성)
+
+    return conn.query("SELECT * FROM transaction_party ORDER BY id", ttl=0)
 
 
 def get_all_categories_with_hierarchy():
     """계층 구조를 포함한 모든 카테고리 정보를 반환합니다."""
     conn = st.connection("supabase", type="sql")
-    # <<< 수정 사항: text() 제거 (고정 문자열) >>>
+
     df = conn.query("SELECT * FROM category ORDER BY materialized_path_desc", ttl=0)
     if df.empty:
         return pd.DataFrame()
@@ -275,7 +265,7 @@ def get_all_categories_with_hierarchy():
 
 
 def load_income_expense_summary(start_date, end_date):
-    """월별 수입/지출 요약 데이터를 반환합니다."""
+
     conn = st.connection("supabase", type="sql")
     query = """
         SELECT 
@@ -287,14 +277,14 @@ def load_income_expense_summary(start_date, end_date):
         GROUP BY "연월"
         ORDER BY "연월"
     """
-    # <<< 수정 사항: text(query) 대신 query 직접 전달 >>>
+
     return conn.query(
         query, params={"start_date": start_date, "end_date": end_date}, ttl=0
     )
 
 
 def load_monthly_category_summary(start_date, end_date, transaction_type):
-    """월별, 카테고리별 요약 데이터를 반환합니다. (최하위 카테고리 기준)"""
+
     conn = st.connection("supabase", type="sql")
     query = """
         SELECT 
@@ -308,7 +298,7 @@ def load_monthly_category_summary(start_date, end_date, transaction_type):
         GROUP BY "연월", "카테고리"
         ORDER BY "연월", "금액" DESC
     """
-    # <<< 수정 사항: text(query) 대신 query 직접 전달 >>>
+
     return conn.query(
         query,
         params={
@@ -321,9 +311,9 @@ def load_monthly_category_summary(start_date, end_date, transaction_type):
 
 
 def get_account_id_by_name(account_name):
-    """계좌 이름으로 ID를 조회합니다."""
+
     conn = st.connection("supabase", type="sql")
-    # <<< 수정 사항: text() 제거 (고정 문자열) >>>
+
     df = conn.query(
         "SELECT id FROM accounts WHERE name = :account_name",
         params={"account_name": account_name},
@@ -333,7 +323,7 @@ def get_account_id_by_name(account_name):
 
 
 def get_all_accounts(account_type: Optional[str] = None):
-    """계좌 목록을 사전 형태로 반환합니다."""
+
     conn = st.connection("supabase", type="sql")
     query = "SELECT id, name FROM accounts"
     params = {}
@@ -343,7 +333,7 @@ def get_all_accounts(account_type: Optional[str] = None):
     query += " ORDER BY name"
 
     try:
-        # <<< 수정 사항: text(query) 대신 query 직접 전달 >>>
+
         df = conn.query(query, params=params, ttl=0)
         return pd.Series(df.id.values, index=df.name).to_dict()
     except Exception as e:
@@ -352,7 +342,7 @@ def get_all_accounts(account_type: Optional[str] = None):
 
 
 def get_bank_expense_transactions(start_date, end_date):
-    """기간 내 은행 지출 거래 내역을 반환합니다."""
+
     conn = st.connection("supabase", type="sql")
     query = """
         SELECT id, transaction_date, content, transaction_amount
@@ -361,28 +351,28 @@ def get_bank_expense_transactions(start_date, end_date):
           AND transaction_date::date BETWEEN :start_date AND :end_date
         ORDER BY transaction_date DESC
     """
-    # <<< 수정 사항: text(query) 대신 query 직접 전달 >>>
+
     return conn.query(
         query, params={"start_date": start_date, "end_date": end_date}, ttl=0
     )
 
 
 def get_balance_history(account_id):
-    """특정 계좌의 잔액 변경 이력을 반환합니다."""
+
     conn = st.connection("supabase", type="sql")
     query = """
         SELECT change_date, reason, previous_balance, change_amount, new_balance 
         FROM account_balance_history 
         WHERE account_id = :account_id ORDER BY change_date DESC
     """
-    # <<< 수정 사항: text(query) 대신 query 직접 전달 >>>
+
     return conn.query(query, params={"account_id": account_id}, ttl=0)
 
 
 def get_init_balance(account_id):
-    """특정 계좌의 현재 잔액과 초기 잔액을 반환합니다."""
+
     conn = st.connection("supabase", type="sql")
-    # <<< 수정 사항: text() 제거 (고정 문자열) >>>
+
     df = conn.query(
         "SELECT balance, initial_balance FROM accounts WHERE id = :account_id",
         params={"account_id": account_id},
@@ -392,14 +382,14 @@ def get_init_balance(account_id):
 
 
 def get_investment_accounts():
-    """모든 투자 계좌 목록을 반환합니다."""
+
     conn = st.connection("supabase", type="sql")
-    # <<< 수정 사항: text() 제거 (고정 문자열) >>>
+
     return conn.query("SELECT * FROM accounts WHERE is_investment = true", ttl=0)
 
 
 def get_all_accounts_df():
-    """모든 계좌 정보를 데이터프레임으로 반환합니다."""
+
     conn = st.connection("supabase", type="sql")
     query = """
         SELECT 
@@ -409,12 +399,12 @@ def get_all_accounts_df():
         FROM accounts 
         ORDER BY type, name
     """
-    # <<< 수정 사항: text(query) 대신 query 직접 전달 >>>
+
     return conn.query(query, ttl=0)
 
 
 def get_monthly_summary_for_dashboard():
-    """대시보드를 위한 월별 요약 데이터를 생성합니다."""
+
     conn = st.connection("supabase", type="sql")
 
     flow_query = """
@@ -426,11 +416,9 @@ def get_monthly_summary_for_dashboard():
         FROM "transaction"
         GROUP BY "연월"
     """
-    # <<< 수정 사항: text(flow_query) 대신 flow_query 직접 전달 >>>
+
     flow_df = conn.query(flow_query, ttl=0)
 
-    # 초기 자산 총합 계산
-    # <<< 수정 사항: text() 제거 (고정 문자열) >>>
     initial_total_asset_df = conn.query(
         "SELECT SUM(initial_balance) as total FROM accounts WHERE is_asset = true",
         ttl=0,
@@ -441,7 +429,6 @@ def get_monthly_summary_for_dashboard():
         else 0
     )
 
-    # 월별 자산 변동액 계산
     history_query = """
         SELECT 
             to_char(change_date, 'YYYY/MM') as "연월",
@@ -451,7 +438,7 @@ def get_monthly_summary_for_dashboard():
         WHERE a.is_asset = true
         GROUP BY "연월"
     """
-    # <<< 수정 사항: text(history_query) 대신 history_query 직접 전달 >>>
+
     history_df = conn.query(history_query, ttl=0)
 
     if not history_df.empty:
@@ -474,12 +461,12 @@ def get_monthly_summary_for_dashboard():
 
 
 def get_annual_summary_data(year: int):
-    """연간 요약 데이터를 생성합니다."""
+
     conn = st.connection("supabase", type="sql")
     try:
         categories_df = conn.query(
             "SELECT id, parent_id, description FROM category", ttl=0
-        )  # text() 제거
+        )
         categories_df["parent_id"] = (
             pd.to_numeric(categories_df["parent_id"], errors="coerce")
             .fillna(0)
@@ -497,7 +484,7 @@ def get_annual_summary_data(year: int):
             WHERE type IN ('INCOME', 'EXPENSE', 'INVEST')
               AND to_char(transaction_date, 'YYYY') = :year_str
         """
-        # <<< 수정 사항: text(query) 대신 query 직접 전달 >>>
+
         df = conn.query(query, params={"year_str": str(year)}, ttl=0)
         if df.empty:
             return pd.DataFrame()
@@ -527,14 +514,10 @@ def get_annual_summary_data(year: int):
 
 
 def get_annual_asset_summary(year: int):
-    """
-    연간 자산 요약 데이터를 생성합니다. (SQLite 원본 기반, PostgreSQL 용으로 수정)
-    """
+
     conn = st.connection("supabase", type="sql")
 
     try:
-        # 1. 모든 계좌의 기본 정보(초기 잔액 포함)를 가져옴
-        # (변경점: 날짜 함수를 PostgreSQL에 맞게 수정)
         accounts_df = conn.query(
             """
             SELECT id, name, initial_balance, '1777-01-01 00:00:00'::timestamp as initial_balance_date 
@@ -550,8 +533,6 @@ def get_annual_asset_summary(year: int):
             "initial_balance_date"
         ].dt.tz_localize("UTC")
 
-        # 2. 모든 거래 내역을 통합하여 계좌별 증감 내역을 만듦
-        # (변경점: 연도 필터링 로직 추가 및 파라미터 바인딩 사용)
         query = """
             SELECT account_id, transaction_date,
                    CASE WHEN type IN ('INCOME') THEN transaction_amount ELSE -transaction_amount END as change
@@ -570,7 +551,6 @@ def get_annual_asset_summary(year: int):
             ttl=0,
         )
 
-        # 초기 잔액 데이터를 거래 변동 데이터와 동일한 형태로 만듦
         initial_balances_df = accounts_df.rename(
             columns={
                 "id": "account_id",
@@ -579,43 +559,33 @@ def get_annual_asset_summary(year: int):
             }
         )[["account_id", "transaction_date", "change"]]
 
-        # 모든 변동 내역을 하나로 합침
         full_history = pd.concat([all_changes_df, initial_balances_df]).sort_values(
             "transaction_date"
         )
         full_history["change"] = full_history["change"].fillna(0)
 
-        # --- Pandas 로직 (기존과 동일) ---
-        # 1. 계좌별로 누적 합계를 계산
         full_history["balance"] = full_history.groupby("account_id")["change"].cumsum()
 
-        # 2. 날짜를 인덱스로 설정하고, 월말(Month-End) 기준으로 리샘플링
         full_history.set_index("transaction_date", inplace=True)
         monthly_balances = (
             full_history.groupby("account_id")["balance"].resample("M").last()
         )
 
-        # ▼▼▼▼▼ 에러 해결을 위한 핵심 수정 부분 ▼▼▼▼▼
         report_df_source = monthly_balances.reset_index()
-        # 3. 'transaction_date'를 'YYYY/MM' 형식의 **문자열** 컬럼으로 변환
+
         report_df_source["year_month"] = report_df_source[
             "transaction_date"
         ].dt.strftime("%Y/%m")
 
-        # 4. 새로 만든 'year_month' 문자열 컬럼으로 피벗
         report_df = report_df_source.pivot_table(
             index="account_id", columns="year_month", values="balance"
         )
-        # ▲▲▲▲▲ 에러 해결을 위한 핵심 수정 부분 ▲▲▲▲▲
 
-        # 5. 계좌 ID를 계좌 이름으로 변경
         id_to_name_map = accounts_df.set_index("id")["name"].to_dict()
         report_df.rename(index=id_to_name_map, inplace=True)
 
-        # 6. 거래가 없던 달의 잔액을 이전 달 잔액으로 채우기
         report_df.ffill(axis=1, inplace=True)
 
-        # 7. 해당 연도의 모든 월 컬럼이 표시되도록 reindex
         all_months_of_year = [f"{year}/{str(m).zfill(2)}" for m in range(1, 13)]
         report_df = report_df.reindex(columns=all_months_of_year).fillna(0)
 

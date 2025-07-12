@@ -1,9 +1,6 @@
-import sqlite3
-
 import streamlit as st
 from st_aggrid import AgGrid, JsCode
 
-import config
 from core.db_manager import (
     add_new_party,
     add_new_category,
@@ -11,7 +8,6 @@ from core.db_manager import (
     update_balance_and_log,
     add_new_account,
     reclassify_all_transfers,
-    re_categorize_un_categorized,
     update_init_balance_and_log,
 )
 from core.db_queries import (
@@ -93,7 +89,7 @@ with col3:
         submitted_cat = st.form_submit_button("카테고리 추가")
         if submitted_cat:
             parent_cat_id = parent_desc_to_id.get(parent_cat_desc)
-            # 타입은 session_state에서 직접 가져옴
+
             final_cat_type = st.session_state.selected_category_type
             assert parent_cat_id is not None
             if all([parent_cat_id, new_cat_code, new_cat_desc, final_cat_type]):
@@ -113,30 +109,24 @@ with col4:
     category_tree_df = get_all_categories_with_hierarchy()
 
     if not category_tree_df.empty:
-        # 그리드에 표시할 최종 컬럼 선택
+
         grid_df = category_tree_df[
             ["id", "category_code", "category_type", "name_path"]
         ].copy()
 
-        # --- 여기가 수정되었습니다 ---
-        # GridOptions 딕셔너리를 직접 생성하는 가장 안정적인 방식 사용
         gridOptions = {
             "columnDefs": [
-                # 경로 계산에만 사용되므로 숨김
                 {"field": "name_path", "hide": True},
                 {"field": "id", "headerName": "ID", "width": 80},
                 {"field": "category_code", "headerName": "코드", "width": 150},
                 {"field": "category_type", "headerName": "타입", "width": 120},
             ],
-            # Tree Data를 위한 핵심 설정
             "treeData": True,
             "animateRows": True,
             "groupDefaultExpanded": -1,
-            # 'name_path' 컬럼을 '/' 기준으로 잘라 경로를 만듦
             "getDataPath": JsCode(
                 "function(data) { return data.name_path.split('/'); }"
             ),
-            # 자동으로 생성될 그룹 컬럼의 모양 정의
             "autoGroupColumnDef": {
                 "headerName": "카테고리 계층",
                 "minWidth": 400,
@@ -170,7 +160,7 @@ if account_names:
         selected_account_name = st.selectbox(
             "조정할 계좌 선택",
             options=account_names,
-            key="selected_account_for_adj",  # key는 그대로 유지하여 session_state를 사용
+            key="selected_account_for_adj",
         )
         with st.form("adjustment_form"):
 
@@ -179,8 +169,6 @@ if account_names:
             submitted = st.form_submit_button("잔액 조정 실행")
             if submitted:
                 account_id = accounts_map[selected_account_name]
-                # DB 연결 및 함수 호출
-                # with sqlite3.connect(config.DB_PATH) as conn:
                 conn = st.connection("supabase", type="sql")
                 try:
                     update_init_balance_and_log(account_id, adjustment_amount)
@@ -194,7 +182,7 @@ if account_names:
 
     with col2:
         st.write("##### 거래 내역 조정 이력")
-        # 선택된 계좌의 조정 히스토리를 보여줌
+
         selected_id = accounts_map[st.session_state.selected_account_for_adj]
 
         result = get_init_balance(selected_id)

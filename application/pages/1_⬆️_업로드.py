@@ -1,6 +1,5 @@
 import streamlit as st
 
-import config
 from core.data_processor import (
     insert_card_transactions_from_excel,
     insert_bank_transactions_from_excel,

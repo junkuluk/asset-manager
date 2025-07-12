@@ -1,4 +1,3 @@
-# pages/3_🔁_거래_재분류.py
 import streamlit as st
 import pandas as pd
 import config
@@ -8,7 +7,7 @@ from st_aggrid import AgGrid, GridOptionsBuilder
 from datetime import date
 from core.ui_utils import apply_common_styles, authenticate_user, logout_button
 
-# --- 페이지 기본 설정 ---
+
 apply_common_styles()
 
 if not authenticate_user():
@@ -18,7 +17,7 @@ logout_button()
 
 st.set_page_config(layout="wide", page_title="거래 재분류")
 
-# --- 메시지 표시 로직 ---
+
 if "dialog_message" in st.session_state and st.session_state.dialog_message:
     st.toast(st.session_state.dialog_message)
     del st.session_state.dialog_message
@@ -29,7 +28,7 @@ st.markdown(
 )
 st.markdown("---")
 
-# --- 날짜 선택 UI ---
+
 today = date.today()
 default_start_date = today.replace(day=1)
 col1, col2 = st.columns(2)
@@ -40,20 +39,19 @@ with col2:
 
 st.markdown("---")
 
-# --- 변경 대상 거래 목록 표시 ---
+
 candidate_df = get_bank_expense_transactions(start_date, end_date)
 
 if not candidate_df.empty:
-    # --- 여기가 수정되었습니다 ---
-    # GridOptions 딕셔너리를 직접 생성
+
     gridOptions = {
         "columnDefs": [
             {
                 "field": "transaction_date",
                 "headerName": "거래일시",
                 "width": 180,
-                "checkboxSelection": True,  # <<< 체크박스를 여기에 직접 지정
-                "headerCheckboxSelection": False,  # 헤더 체크박스는 비활성화
+                "checkboxSelection": True,
+                "headerCheckboxSelection": False,
             },
             {"field": "content", "headerName": "내용", "width": 300},
             {
@@ -83,9 +81,8 @@ if not candidate_df.empty:
 
     selected_candidate = candidate_grid_response["selected_rows"]
 
-    # --- 대상 계좌 선택 및 실행 UI ---
     if selected_candidate is not None and not selected_candidate.empty:
-        # DataFrame의 첫 번째 행을 가져옵니다.
+
         selected_row_data = selected_candidate.iloc[0]
 
         st.write("##### 2. 이체 대상 계좌 선택 및 실행")
@@ -93,7 +90,7 @@ if not candidate_df.empty:
         with col_form:
             with st.form("reclassify_form"):
                 all_accounts_map = get_all_accounts()
-                # 출금 계좌는 목록에서 제외
+
                 source_bank_account_name = "신한은행-110-227-963599"
                 if source_bank_account_name in all_accounts_map:
                     del all_accounts_map[source_bank_account_name]

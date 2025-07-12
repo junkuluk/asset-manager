@@ -67,7 +67,6 @@ def insert_card_transactions_from_excel(filepath):
         st.error(f"파일 파싱 중 오류 발생: {filename}, {e}")
         return 0, 0
 
-    # --- 데이터 전처리 ---
     df.dropna(
         subset=["transaction_date", "content", "transaction_amount"], inplace=True
     )
@@ -86,7 +85,6 @@ def insert_card_transactions_from_excel(filepath):
     df["transaction_type"] = "CARD"
     df["transaction_party_id"] = 1  # 기본값
 
-    # --- 규칙 엔진 실행 ---
     conn = st.connection("supabase", type="sql")
     cat_df = conn.query(
         "SELECT id FROM category WHERE category_code = 'UNCATEGORIZED' AND category_type = 'EXPENSE' LIMIT 1",
@@ -96,25 +94,23 @@ def insert_card_transactions_from_excel(filepath):
 
     df = run_rule_engine(df, default_category_id=default_cat_id)
 
-    # --- 계좌 ID 매핑 ---
     shinhan_card_account_id = get_account_id_by_name("신한카드")
-    kukmin_card_account_id = get_account_id_by_name("국민카드")
+    kookmin_card_account_id = get_account_id_by_name("국민카드")
+
     assert shinhan_card_account_id is not None
-    assert kukmin_card_account_id is not None
+    assert kookmin_card_account_id is not None
+
     df["account_id"] = np.where(
         df["transaction_provider"] == "SHINHAN_CARD",
         shinhan_card_account_id,
-        kukmin_card_account_id,
+        kookmin_card_account_id,
     )
 
-    # --- DB 삽입 (수정된 트랜잭션 블록) ---
     inserted_rows = 0
     skipped_rows = 0
     try:
-        # with 블록이 끝나면 자동 commit, 오류 시 자동 rollback
         with conn.session as s:
             for _, row in df.iterrows():
-                # 중복 확인
                 check_query = text(
                     """
                     SELECT 1 FROM "transaction" t
@@ -134,7 +130,6 @@ def insert_card_transactions_from_excel(filepath):
                     skipped_rows += 1
                     continue
 
-                # transaction 삽입
                 insert_trans_query = text(
                     """
                     INSERT INTO "transaction" (type, transaction_type, transaction_provider, category_id,
@@ -159,7 +154,6 @@ def insert_card_transactions_from_excel(filepath):
                 )
                 transaction_id = result.scalar_one()
 
-                # card_transaction 삽입
                 insert_card_query = text(
                     """
                     INSERT INTO "card_transaction" (id, card_approval_number, card_type, card_name)
@@ -177,7 +171,6 @@ def insert_card_transactions_from_excel(filepath):
                 )
                 inserted_rows += 1
 
-            # ✅ [수정] 모든 루프가 성공적으로 끝나면 최종 커밋
             s.commit()
             print("커밋 성공!")
     except Exception as e:
@@ -188,10 +181,6 @@ def insert_card_transactions_from_excel(filepath):
 
 
 def insert_bank_transactions_from_excel(filepath):
-    """
-    은행 엑셀 파일을 읽어 거래 내역을 DB에 삽입합니다.
-    효율적인 트랜잭션 처리를 위해 수정되었습니다.
-    """
     try:
         df = pd.read_excel(filepath, skiprows=6, sheet_name=0)
         df.columns = df.columns.str.replace(r"\(원\)", "", regex=True).str.strip()
@@ -204,7 +193,6 @@ def insert_bank_transactions_from_excel(filepath):
     skipped_count = 0
 
     try:
-        # --- 필요한 ID와 기존 해시값 미리 로드 ---
         existing_hashes_df = conn.query(
             "SELECT unique_hash FROM bank_transaction", ttl=0
         )
@@ -234,7 +222,6 @@ def insert_bank_transactions_from_excel(filepath):
             st.error("오류: 필수 계좌 또는 카테고리 ID를 DB에서 찾을 수 없습니다.")
             return 0, 0
 
-        # --- 데이터 전처리 및 중복 제거 ---
         df.dropna(subset=["거래일자", "거래시간"], inplace=True)
         date_str = pd.to_datetime(df["거래일자"]).dt.strftime("%Y-%m-%d")
         time_str = df["거래시간"].astype(str)
@@ -253,7 +240,6 @@ def insert_bank_transactions_from_excel(filepath):
             )
             return 0, skipped_count
 
-        # --- 타입 및 카테고리 분류 ---
         df["amount"] = df["입금"].fillna(0) - df["출금"].fillna(0)
         df["transaction_amount"] = df["amount"].abs().astype(int)
 
@@ -279,7 +265,7 @@ def insert_bank_transactions_from_excel(filepath):
             df.update(categorized_subset)
 
         assert bank_account_id is not None
-        # --- DB 삽입 및 잔액 업데이트 (수정된 트랜잭션 블록) ---
+
         with conn.session as s:
             for _, row in df.iterrows():
                 insert_trans_query = text(
@@ -327,7 +313,6 @@ def insert_bank_transactions_from_excel(filepath):
                     },
                 )
 
-                # 잔액 업데이트 (s.connection을 전달하여 동일한 트랜잭션에 참여)
                 change_amount = int(row["transaction_amount"])
                 reason = f"거래 ID {transaction_id}: {content}"
                 if row["type"] == "INCOME":
@@ -355,7 +340,6 @@ def insert_bank_transactions_from_excel(filepath):
 
                 inserted_count += 1
 
-            # ✅ [수정] 모든 루프가 성공적으로 끝나면 최종 커밋
             print(f"{inserted_count}건의 데이터 처리 완료. 커밋을 시도합니다...")
             s.commit()
             print("커밋 성공!")

@@ -34,7 +34,6 @@ except Exception as e:
     st.stop()
 
 
-# --- 홈 화면 UI ---
 st.title("💰 나의 자산 관리 대시보드")
 st.markdown("---")
 st.header("환영합니다! 👋")
