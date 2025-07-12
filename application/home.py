@@ -1,5 +1,6 @@
 import streamlit as st
 import config
+import time
 
 # 애플리케이션의 핵심 기능을 담당하는 모듈들을 임포트
 from core.db_manager import run_migrations  # 데이터베이스 스키마 마이그레이션 실행
@@ -35,25 +36,30 @@ print(f"SCHEMA_PATH:{config.SCHEMA_PATH}")
 # Streamlit 페이지 설정 (페이지 제목, 아이콘, 레이아웃 등)
 st.set_page_config(layout="wide", page_title="나의 자산 관리 대시보드", page_icon="💰")
 
+message_placeholder = st.empty()
 
-try:
-    # 데이터베이스 마이그레이션 실행 (스키마 최신화)
-    run_migrations()
-    # 초기 계좌 데이터 삽입 (존재하지 않을 경우)
-    seed_initial_accounts()
-    # 초기 거래처 데이터 삽입 (존재하지 않을 경우)
-    seed_initial_parties()
-    # 초기 카테고리 데이터 삽입 (존재하지 않을 경우)
-    seed_initial_categories()
-    # 초기 분류 규칙 데이터 삽입 (JSON 파일 기반)
-    seed_initial_rules()
-    # 초기 이체 규칙 데이터 삽입 (JSON 파일 기반)
-    seed_initial_transfer_rules()
-except Exception as e:
-    # 초기 데이터 생성 중 오류 발생 시 에러 메시지 출력 후 앱 실행 중단
-    st.error(f"초기 데이터 생성 중 오류 발생: {e}")
-    st.stop()
+with message_placeholder.container():
+    try:
+        # 데이터베이스 마이그레이션 실행 (스키마 최신화)
+        run_migrations()
+        # 초기 계좌 데이터 삽입 (존재하지 않을 경우)
+        seed_initial_accounts()
+        # 초기 거래처 데이터 삽입 (존재하지 않을 경우)
+        seed_initial_parties()
+        # 초기 카테고리 데이터 삽입 (존재하지 않을 경우)
+        seed_initial_categories()
+        # 초기 분류 규칙 데이터 삽입 (JSON 파일 기반)
+        seed_initial_rules()
+        # 초기 이체 규칙 데이터 삽입 (JSON 파일 기반)
+        seed_initial_transfer_rules()
+    except Exception as e:
+        # 초기 데이터 생성 중 오류 발생 시 에러 메시지 출력 후 앱 실행 중단
+        st.error(f"초기 데이터 생성 중 오류 발생: {e}")
+        st.stop()
 
+time.sleep(1)
+
+message_placeholder.empty()
 
 # 대시보드 메인 페이지 UI 구성
 st.title("💰 나의 자산 관리 대시보드")  # 메인 제목
