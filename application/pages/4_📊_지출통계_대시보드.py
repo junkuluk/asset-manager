@@ -3,7 +3,7 @@ from datetime import date  # 날짜 처리를 위함
 import pandas as pd  # 데이터 처리 및 분석
 import plotly.express as px  # 대화형 차트 생성
 import streamlit as st  # 웹 애플리케이션 프레임워크
-from st_aggrid import AgGrid, GridOptionsBuilder  # AG Grid 테이블 표시
+from st_aggrid import AgGrid  # AG Grid 테이블 표시
 
 from core.db_queries import (  # 데이터베이스 쿼리 함수 임포트
     load_data_for_sunburst,  # 선버스트 차트용 데이터 로드
@@ -27,9 +27,10 @@ if not authenticate_user():
 logout_button()
 
 # Streamlit 페이지 설정 (페이지 제목 및 레이아웃)
-st.set_page_config(layout="wide", page_title="계층별 수입 분석")
-st.title("📊 계층별 수입 분석")  # 페이지 메인 제목
+st.set_page_config(layout="wide", page_title="계층별 지출 분석")
+st.title("📊 계층별 지출 분석")  # 페이지 메인 제목
 st.markdown("---")  # 구분선
+
 
 # AG Grid 테이블의 헤더 셀 텍스트를 굵게 표시하는 커스텀 CSS 스타일 적용
 st.markdown(
@@ -65,17 +66,15 @@ if start_date > end_date:
 # 차트 영역을 두 개의 컬럼으로 분할
 col_chart1, col_chart2 = st.columns(2)
 with col_chart1:
-    # --- 전체 기간 수입 현황 (선버스트 차트) ---
-    st.subheader(f"전체 기간 수입 현황 ({start_date} ~ {end_date})")  # 서브 헤더
+    # --- 전체 기간 지출 현황 (선버스트 차트) ---
+    st.subheader(f"전체 기간 지출 현황 ({start_date} ~ {end_date})")  # 서브 헤더
 
-    # 선버스트 차트용 데이터 로드 (거래 유형을 "INCOME"으로 지정)
-    sunburst_df = load_data_for_sunburst(
-        str(start_date), str(end_date), transaction_type="INCOME"
-    )
+    # 선버스트 차트용 데이터 로드 (transaction_type 기본값이 'EXPENSE'이므로 생략 가능)
+    sunburst_df = load_data_for_sunburst(str(start_date), str(end_date))
 
     # 데이터가 없는 경우 경고 메시지 표시
     if sunburst_df.empty:
-        st.warning("선택된 기간에 해당하는 수입 데이터가 없습니다.")
+        st.warning("선택된 기간에 해당하는 지출 데이터가 없습니다.")
     else:
         # 선버스트 차트 생성을 위한 데이터 전처리
         sunburst_df["id"] = sunburst_df["id"].astype(str)  # id를 문자열로 변환
@@ -116,12 +115,10 @@ with col_chart1:
         )  # Streamlit에 차트 표시 (컨테이너 너비에 맞춤)
 
 with col_chart2:
-    # --- 월별 총 수입액 추이 (막대 그래프) ---
-    st.subheader(f"월별 총 수입액 추이 ({start_date} ~ {end_date})")  # 서브 헤더
-    # 월별 총 수입액 데이터 로드 (거래 유형을 "INCOME"으로 지정)
-    monthly_spending_df = load_monthly_total_spending(
-        str(start_date), str(end_date), transaction_type="INCOME"
-    )
+    # --- 월별 총 지출액 추이 (막대 그래프) ---
+    st.subheader(f"월별 총 지출액 추이 ({start_date} ~ {end_date})")  # 서브 헤더
+    # 월별 총 지출액 데이터 로드 (transaction_type 기본값이 'EXPENSE'이므로 생략 가능)
+    monthly_spending_df = load_monthly_total_spending(str(start_date), str(end_date))
 
     # 막대 위에 표시할 텍스트 라벨 생성 (천 단위 구분)
     monthly_spending_df["text_label"] = monthly_spending_df["total_spending"].apply(
@@ -130,15 +127,15 @@ with col_chart2:
 
     # 데이터가 없는 경우 정보 메시지 표시
     if monthly_spending_df.empty:
-        st.info("해당 기간의 월별 수입 데이터가 없습니다.")
+        st.info("해당 기간의 월별 지출 데이터가 없습니다.")
     else:
-        # 월별 총 수입액 막대 그래프 생성
+        # 월별 총 지출액 막대 그래프 생성
         fig_bar = px.bar(
             monthly_spending_df,
             x="year_month",  # x축: 연월
-            y="total_spending",  # y축: 총 수입액
-            labels={"total_spending": "총 수입액", "year_month": "월"},  # 축 라벨
-            title="월별 총 수입액",  # 차트 제목
+            y="total_spending",  # y축: 총 지출액
+            labels={"total_spending": "총 지출액", "year_month": "월"},  # 축 라벨
+            title="월별 총 지출액",  # 차트 제목
             text="text_label",  # 막대 위에 텍스트 라벨 표시
         )
         fig_bar.update_traces(
@@ -146,10 +143,11 @@ with col_chart2:
         )  # 막대 위에 텍스트 포맷 적용
         st.plotly_chart(fig_bar, use_container_width=True)  # Streamlit에 차트 표시
 
+
 st.markdown("---")  # 구분선
 
-# --- 주요 수입 항목 비중 (트리맵) ---
-st.subheader("주요 수입 항목 비중 (Treemap)")
+# --- 주요 지출 항목 비중 (트리맵) ---
+st.subheader("주요 지출 항목 비중 (Treemap)")
 
 # 선버스트 데이터에서 리프 노드(가장 하위 카테고리)만 필터링하여 복사
 # 이는 부모 ID에 속하지 않는 ID를 가진 노드들이 리프 노드라고 가정
@@ -161,28 +159,27 @@ leaf_nodes_df = sunburst_df[
 fig_treemap = px.treemap(
     leaf_nodes_df,
     path=[
-        px.Constant("전체 수입"),
+        px.Constant("전체 지출"),
         "description",
-    ],  # 계층 경로 정의 ("전체 수입" -> 카테고리 설명)
+    ],  # 계층 경로 정의 ("전체 지출" -> 카테고리 설명)
     values="total_amount",  # 노드의 크기를 결정하는 값
     color="total_amount",  # 값에 따라 색상 구분
     color_continuous_scale="Reds",  # 연속 색상 스케일
 )
-fig_treemap.update_layout(margin=dict(t=25, l=0, r=0, b=0))  # 레이아웃 여백 조정
 fig_treemap.update_traces(
     texttemplate="%{label}<br>%{value:,.0f}"
 )  # 노드에 라벨과 금액 표시
+fig_treemap.update_layout(margin=dict(t=25, l=0, r=0, b=0))  # 레이아웃 여백 조정
 st.plotly_chart(fig_treemap, use_container_width=True)  # Streamlit에 차트 표시
 
 
 st.markdown("---")  # 구분선
-# --- 월별/카테고리별 수입 내역 (AG Grid) ---
-st.subheader(f"월별/카테고리별 수입 내역 ({start_date} ~ {end_date})")  # 서브 헤더
+# --- 월별/카테고리별 지출 내역 (AG Grid) ---
+st.subheader(f"월별/카테고리별 지출 내역 ({start_date} ~ {end_date})")  # 서브 헤더
 
-# 피벗 그리드용 데이터 로드 (거래 유형을 "INCOME"으로 지정)
-grid_source_df = load_data_for_pivot_grid(
-    str(start_date), str(end_date), transaction_type="INCOME"
-)
+
+# 피벗 그리드용 데이터 로드 (transaction_type 기본값이 'EXPENSE'이므로 생략 가능)
+grid_source_df = load_data_for_pivot_grid(str(start_date), str(end_date))
 
 # 그리드 소스 데이터프레임이 비어있지 않은 경우
 if not grid_source_df.empty:
