@@ -88,4 +88,13 @@ else:
     # 월별 요약 데이터 테이블 표시
     st.subheader("월별 요약 데이터")  # 서브 헤더
     # 데이터프레임을 '연월'을 인덱스로 설정하여 표시
-    st.dataframe(summary_df.set_index("연월"), use_container_width=True)
+    st.dataframe(
+        summary_df.set_index("연월").style.format(
+            {
+                "수입": "{:,.0f}",
+                "지출": "{:,.0f}",
+                "총자산": "{:,.0f}",
+            }
+        ),
+        use_container_width=True,
+    )

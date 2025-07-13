@@ -250,29 +250,82 @@ asset_df = get_annual_asset_summary(selected_year)
 if asset_df.empty:
     st.info("해당 기간의 자산 변동 내역이 없습니다.")
 else:
-    # 총 자산 행 추가 (모든 계좌의 합계)
+    # 1. 컬럼 이름을 시간 순으로 정렬합니다.
+    # 'YYYY/MM' 형식의 컬럼만 선택하고, 이들을 기준으로 정렬
+    month_columns = [
+        col
+        for col in asset_df.columns
+        if pd.to_datetime(col, format="%Y/%m", errors="coerce") is not pd.NaT
+    ]
+    sorted_month_columns = sorted(
+        month_columns, key=lambda x: pd.to_datetime(x, format="%Y/%m")
+    )
+
+    # 정렬된 월 컬럼만 포함하도록 데이터프레임 재구성
+    asset_df = asset_df[sorted_month_columns]
+
+    # 2. 모든 값을 숫자로 변환하고, 결측치(NaN 또는 pd.NA)를 0으로 채웁니다.
+    # 이 부분이 중요합니다. 숫자로 변환하기 전에 결측치와 0을 처리해야 합니다.
+    # 원본 데이터에 빈 문자열이나 다른 비숫자 값이 있다면 to_numeric의 errors='coerce'가 유용합니다.
+    asset_df = asset_df.apply(pd.to_numeric, errors="coerce").fillna(0)
+
+    # 3. 총 자산 행 추가 (모든 계좌의 합계)
     asset_df.loc["총 자산"] = asset_df.sum()
+
+    # --- 스타일링 함수 정의 ---
+    def highlight_monthly_change(row):
+        """
+        한 행 내에서 이전 월과 비교하여 셀의 값을 기준으로 색상을 반환합니다.
+        row: Pandas Series (데이터프레임의 한 행)
+        """
+        # 결과 스타일 리스트 (각 셀에 적용될 스타일)
+        styles = [""] * len(row)  # 모든 셀에 기본값으로 빈 문자열 설정
+
+        # '총 자산' 행은 스타일을 다르게 적용
+        if row.name == "총 자산":
+            return ["font-weight: bold; background-color: #f7f7f7"] * len(row)
+
+        for i in range(1, len(row)):  # 두 번째 컬럼부터 시작 (첫 번째 컬럼과 비교)
+            current_value = row.iloc[i]
+            prev_value = row.iloc[i - 1]
+
+            # 이 단계에서는 이미 모든 값이 숫자로 변환되어 결측치(NaN)가 없으므로 별도 체크 불필요
+            # (만약 0을 제외한 NaN이 있을 수 있다면 isna 체크를 다시 넣을 수 있음)
+
+            # 부채 계좌 목록 (예시: 실제 계좌명으로 교체 필요)
+            debt_accounts = ["신한카드", "국민카드", "현대카드"]
+
+            if row.name in debt_accounts:  # 부채 계좌인 경우 (값이 음수)
+                if (
+                    current_value > prev_value
+                ):  # 값이 증가 (즉, 빚이 덜 줄었거나 늘어남) -> 안 좋은 변화
+                    styles[i] = "color: red;"
+                elif (
+                    current_value < prev_value
+                ):  # 값이 감소 (즉, 빚이 줄어듦) -> 좋은 변화
+                    styles[i] = "color: blue;"
+                # else: 변화 없음 (기본 스타일)
+            else:  # 자산 계좌인 경우 (값이 양수)
+                if current_value > prev_value:  # 값이 증가 -> 좋은 변화
+                    styles[i] = "color: blue;"
+                elif current_value < prev_value:  # 값이 감소 -> 안 좋은 변화
+                    styles[i] = "color: red;"
+                # else: 변화 없음 (기본 스타일)
+        return styles
 
     # 자산 데이터프레임에 스타일 적용
     styled_asset_df = (
         asset_df.style.format(
-            "{:,.0f}원", na_rep="-"
-        )  # 숫자 포맷 (천 단위, '원' 추가, NaN은 '-')
-        .set_properties(text_align="right")  # 모든 셀 텍스트 오른쪽 정렬
+            "{:,.0f}원",
+            na_rep="-",  # na_rep는 format 이후에 다시 NaN이 생길 경우에 대비
+        )
+        .set_properties(text_align="right")
         .apply(
-            # '총 자산' 행에 폰트 굵게, 배경색 지정 스타일 적용
-            lambda row: [
-                (
-                    "font-weight: bold; background-color: #f7f7f7"
-                    if row.name == "총 자산"
-                    else ""
-                )
-                for _ in row
-            ],
-            axis=1,  # 행 단위로 스타일 적용
+            highlight_monthly_change,
+            axis=1,  # 행 단위로 스타일 적용 (이전/다음 월 비교)
         )
     )
 
-    st.dataframe(  # 스타일이 적용된 자산 데이터프레임 표시
+    st.dataframe(
         styled_asset_df, use_container_width=True, height=(len(asset_df) + 1) * 35 + 3
     )
