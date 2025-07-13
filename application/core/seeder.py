@@ -433,6 +433,16 @@ def seed_initial_categories():
                 "depth": 4,
             },
         )
+        insert_and_get_id(  # OTT
+            insert_level_query,
+            {
+                "code": "OTT_BILL",
+                "type": "EXPENSE",
+                "parent_id": comm_id,
+                "desc": "OTT 넥플렉스",
+                "depth": 4,
+            },
+        )
         insert_and_get_id(  # 핸드폰비
             insert_level_query,
             {
