@@ -33,7 +33,7 @@ def load_data_from_db(
     query_parts = [
         """
         SELECT 
-            t.id, t.transaction_type, t.transaction_date, t.content, t.transaction_amount, t.description, t.type, 
+            t.id, t.transaction_type, t.transaction_date, t.content, t.summary_content, t.transaction_amount, t.description, t.type, 
             c.description as category_name,
             p.description as party_description
         FROM "transaction" t

@@ -21,12 +21,12 @@ def apply_common_styles():
     )
 
 
-localS = (
-    LocalStorage()
-)  # Streamlit 애플리케이션에서 로컬 스토리지에 접근하기 위한 객체 생성
-
-
 def authenticate_user():
+
+    localS = (
+        LocalStorage()
+    )  # Streamlit 애플리케이션에서 로컬 스토리지에 접근하기 위한 객체 생성
+
     username = localS.getItem("username")
     actual_username = username.get("value") if isinstance(username, dict) else username
 
@@ -64,6 +64,10 @@ def logout_button():
     로그아웃 버튼을 사이드바에 표시하고, 클릭 시 사용자 세션 종료.
     로컬 스토리지에서 사용자 이름 정보를 삭제하고 앱을 재실행.
     """
+
+    localS = (
+        LocalStorage()
+    )  # Streamlit 애플리케이션에서 로컬 스토리지에 접근하기 위한 객체 생성
 
     # 로컬 스토리지에서 현재 로그인된 사용자 이름 가져오기
     username = localS.getItem("username")

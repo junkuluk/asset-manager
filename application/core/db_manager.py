@@ -361,7 +361,11 @@ def update_init_balance_and_log(account_id: int, change_amount: int):
 
 
 def update_balance_and_log(
-    account_id: int, change_amount: int, reason: str, session: Session
+    account_id: int,
+    change_amount: int,
+    reason: str,
+    session: Session,
+    change_date: datetime = datetime.now(),
 ):
     """
     계좌의 현재 잔액을 업데이트하고 잔액 변경 내역을 로그에 기록.
@@ -408,7 +412,7 @@ def update_balance_and_log(
         history_query,
         {
             "account_id": account_id,
-            "change_date": datetime.now(),  # 현재 시간 기록
+            "change_date": change_date,
             "previous_balance": previous_balance,
             "change_amount": change_amount,
             "new_balance": new_balance,
@@ -437,7 +441,7 @@ def reclassify_expense(transaction_id: int, linked_account_id: int):
             # 거래 금액 및 현재 거래 유형 조회
             trans_info = s.execute(
                 text(
-                    'SELECT transaction_amount, type FROM "transaction" WHERE id = :tid'
+                    'SELECT transaction_amount, transaction_date, type FROM "transaction" WHERE id = :tid'
                 ),
                 {"tid": transaction_id},
             ).first()
@@ -453,7 +457,7 @@ def reclassify_expense(transaction_id: int, linked_account_id: int):
             if not trans_info or not linked_account_info:
                 return False, "거래 또는 대상 계좌 정보를 찾을 수 없습니다."
 
-            amount, current_type = trans_info
+            amount, transaction_date, current_type = trans_info
             _, is_investment = linked_account_info
 
             # 현재 거래 유형이 'EXPENSE'가 아니면 재분류 불가
@@ -495,7 +499,13 @@ def reclassify_expense(transaction_id: int, linked_account_id: int):
 
             # 연결된 계좌의 잔액 업데이트 및 로그 기록
             reason = f"거래 ID {transaction_id}: '{new_type}'(으)로 재분류"
-            update_balance_and_log(linked_account_id, amount, reason, session=s)
+            update_balance_and_log(
+                linked_account_id,
+                amount,
+                reason,
+                change_date=transaction_date,
+                session=s,
+            )
 
             s.commit()  # 변경사항 커밋
             return (

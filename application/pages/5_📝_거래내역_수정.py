@@ -170,19 +170,19 @@ else:
             {
                 "field": "id",
                 "headerName": "ID",
-                "width": 80,
+                "width": 50,
                 "editable": False,
             },  # ID 컬럼: 수정 불가
             {
                 "field": "transaction_type",  # 거래 종류 (BANK, CARD)
                 "headerName": "종류",
-                "width": 80,
+                "width": 50,
                 "editable": False,
             },
             {
                 "field": "type",
                 "headerName": "구분",
-                "width": 100,
+                "width": 80,
                 "editable": False,
             },  # 거래 구분 (EXPENSE, INCOME 등)
             {
@@ -195,9 +195,15 @@ else:
             {
                 "field": "content",
                 "headerName": "내용",
-                "width": 250,
+                "width": 200,
                 "editable": False,
             },  # 거래 내용: 수정 불가
+            {
+                "field": "summary_content",
+                "headerName": "적요",
+                "width": 100,
+                "editable": False,
+            },
             {
                 "field": "party_description",  # 거래처 설명
                 "headerName": "거래처",

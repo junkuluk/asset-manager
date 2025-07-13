@@ -394,6 +394,7 @@ def insert_bank_transactions_from_excel(filepath):
                 t_date = pd.to_datetime(
                     f"{row['거래일자']} {row['거래시간']}"
                 ).strftime("%Y-%m-%d %H:%M:%S")
+                real_t_date = pd.to_datetime(f"{row['거래일자']} {row['거래시간']}")
                 content = f"{row.get('내용', '')}"
                 # 'linked_account_id'가 NaN이거나 0이면 None, 아니면 정수형으로 변환
                 linked_id = (
@@ -438,12 +439,20 @@ def insert_bank_transactions_from_excel(filepath):
                 if row["type"] == "INCOME":
                     # 수입인 경우 계좌 잔액 증가
                     update_balance_and_log(
-                        int(bank_account_id), change_amount, reason, session=s
+                        int(bank_account_id),
+                        change_amount,
+                        reason,
+                        change_date=real_t_date,
+                        session=s,
                     )
                 elif row["type"] == "EXPENSE":
                     # 지출인 경우 계좌 잔액 감소
                     update_balance_and_log(
-                        int(bank_account_id), -change_amount, reason, session=s
+                        int(bank_account_id),
+                        -change_amount,
+                        reason,
+                        change_date=real_t_date,
+                        session=s,
                     )
                 elif row["type"] == "TRANSFER":
                     # 이체인 경우 본 계좌에서 출금 처리
@@ -451,6 +460,7 @@ def insert_bank_transactions_from_excel(filepath):
                         int(bank_account_id),
                         -change_amount,
                         f"이체 출금: {reason}",
+                        change_date=real_t_date,
                         session=s,
                     )
                     if linked_id:
@@ -459,6 +469,7 @@ def insert_bank_transactions_from_excel(filepath):
                             int(linked_id),
                             change_amount,
                             f"이체 입금: {reason}",
+                            change_date=real_t_date,
                             session=s,
                         )
 
