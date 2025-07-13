@@ -260,20 +260,6 @@
   },
 
   {
-    "description": "가족 모임 회비",
-    "priority": 1,
-    "category_code": "FAMILY_GATHERING",
-    "conditions": [
-      { "column": "content", "match_type": "EXACT", "value": "양영준" },
-      {
-        "column": "transaction_amount",
-        "match_type": "EQUALS",
-        "value": "100000"
-      }
-    ]
-  },
-
-  {
     "description": "쿠팡 와우 회원 사용료",
     "priority": 1,
     "category_code": "COUPANG_MEMBERSHIP",
@@ -365,7 +351,7 @@
     "category_code": "SALARY",
     "conditions": [
       {
-        "column": "content",
+        "column": "income_content",
         "match_type": "EXACT",
         "value": "급여현대오토에버"
       }
@@ -376,7 +362,11 @@
     "priority": 1,
     "category_code": "MOBILE_SUBSIDY",
     "conditions": [
-      { "column": "content", "match_type": "EXACT", "value": "오토에버경비" }
+      {
+        "column": "income_content",
+        "match_type": "EXACT",
+        "value": "오토에버경비"
+      }
     ]
   }
 ]

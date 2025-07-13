@@ -95,6 +95,10 @@ else:
         lambda x: "긍정" if x >= 0 else "부정"
     )
 
+    summary_df["연월"] = pd.to_datetime(summary_df["연월"])
+
+    summary_df = summary_df.sort_values(by="연월")
+
     # 월별 순수익 막대 그래프 생성
     fig_net = px.bar(
         summary_df,
@@ -142,9 +146,27 @@ else:
     # --- 요약 테이블 ---
     st.subheader("요약 테이블")  # 서브 헤더
     # 요약 데이터프레임을 테이블로 표시하고 금액 포맷 적용
+
+    summary_df["색상"] = summary_df["순수익"].apply(lambda x: "▲" if x >= 0 else "▼")
+
+    def style_arrow_color(row):
+        # 순수익이 0 이상이면 파란색, 미만이면 빨간색을 지정합니다.
+        color = "blue" if row["순수익"] >= 0 else "red"
+
+        # row의 다른 컬럼은 스타일을 적용하지 않고, '색상' 컬럼에만 스타일을 적용합니다.
+        styles = [""] * len(row)  # 모든 컬럼의 스타일을 일단 비워둡니다.
+        color_col_idx = row.index.get_loc("색상")  # '색상' 컬럼의 위치를 찾습니다.
+        styles[color_col_idx] = (
+            f"color: {color}; font-weight: bold;"  # 해당 위치에만 CSS 스타일을 적용합니다.
+        )
+
+        return styles
+
     st.dataframe(
-        summary_df.set_index("연월").style.format(
+        summary_df.set_index("연월")
+        .style.format(
             "{:,.0f}",
             subset=["수입", "지출", "순수익"],  # 지정된 컬럼에 천 단위 구분 기호 적용
         )
+        .apply(style_arrow_color, axis=1)
     )

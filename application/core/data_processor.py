@@ -129,6 +129,7 @@ def insert_card_transactions_from_excel(filepath):
     df["type"] = "EXPENSE"
     # 거래 종류를 'CARD'로 고정
     df["transaction_type"] = "CARD"
+    df["income_content"] = "NA"
     # 거래 당사자 ID를 기본값 1로 설정
     df["transaction_party_id"] = 1  # 기본값
 
@@ -187,6 +188,10 @@ def insert_card_transactions_from_excel(filepath):
 
                 # 이미 존재하는 거래인 경우 건너뛰고 다음 행으로 이동
                 if existing:
+                    skipped_rows += 1
+                    continue
+
+                if row["card_type"] == "체크":
                     skipped_rows += 1
                     continue
 
@@ -331,6 +336,7 @@ def insert_bank_transactions_from_excel(filepath):
     df["amount"] = df["입금"].fillna(0) - df["출금"].fillna(0)
     # 거래 금액의 절댓값을 'transaction_amount'로 저장 (정수형)
     df["transaction_amount"] = df["amount"].abs().astype(int)
+    df["income_content"] = df["내용"].astype(str)
 
     # 이체 거래를 식별하고 연결된 계좌 ID 반환
     linked_account_id_series = identify_transfers(df)
@@ -360,6 +366,11 @@ def insert_bank_transactions_from_excel(filepath):
         # 규칙 엔진을 사용하여 카테고리 분류 (기본 지출 카테고리 ID 사용)
         categorized_subset = run_rule_engine(df_to_categorize, default_expense_cat_id)
         # 원본 데이터프레임에 분류된 결과 업데이트
+
+        df.update(categorized_subset)
+        categorized_subset = run_rule_engine(df_to_categorize, default_income_cat_id)
+        # 원본 데이터프레임에 분류된 결과 업데이트
+        print(categorized_subset)
         df.update(categorized_subset)
 
     # 은행 계좌 ID가 성공적으로 조회되었는지 확인
@@ -383,8 +394,7 @@ def insert_bank_transactions_from_excel(filepath):
                 t_date = pd.to_datetime(
                     f"{row['거래일자']} {row['거래시간']}"
                 ).strftime("%Y-%m-%d %H:%M:%S")
-                # '적요'와 '내용'을 조합하여 거래 내용 생성
-                content = f"{row.get('적요', '')} / {row.get('내용', '')}"
+                content = f"{row.get('내용', '')}"
                 # 'linked_account_id'가 NaN이거나 0이면 None, 아니면 정수형으로 변환
                 linked_id = (
                     None
