@@ -10,7 +10,7 @@ import config
 from analysis import run_rule_engine, identify_transfers
 
 # 데이터베이스의 최신 스키마 버전 정의
-LATEST_DB_VERSION = 4
+LATEST_DB_VERSION = 5
 # 성공 메시지 상수
 SUCCESS_MSG = "성공적으로 추가되었습니다."
 
@@ -507,7 +507,9 @@ def reclassify_expense(transaction_id: int, linked_account_id: int):
             return False, f"작업 중 오류 발생: {e}"
 
 
-def add_new_account(name: str, account_type: str, is_asset: bool, initial_balance: int):
+def add_new_account(
+    name: str, account_type: str, is_asset: bool, is_invest: bool, initial_balance: int
+):
     """
     새로운 계좌를 데이터베이스에 추가.
 
@@ -528,12 +530,13 @@ def add_new_account(name: str, account_type: str, is_asset: bool, initial_balanc
             # 'accounts' 테이블에 새로운 계좌 삽입
             s.execute(
                 text(
-                    "INSERT INTO accounts (name, account_type, is_asset, initial_balance, balance) VALUES (:name, :type, :is_asset, :init, :balance)"
+                    "INSERT INTO accounts (name, account_type, is_asset, is_investment, initial_balance, balance) VALUES (:name, :type, :is_asset, :is_invest, :init, :balance)"
                 ),
                 {
                     "name": name,
                     "type": account_type,
                     "is_asset": is_asset,
+                    "is_invest": is_invest,
                     "init": initial_balance,
                     "balance": initial_balance,  # 초기 잔액과 현재 잔액을 동일하게 설정
                 },

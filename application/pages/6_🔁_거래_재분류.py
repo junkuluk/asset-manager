@@ -61,6 +61,7 @@ st.markdown("---")  # 구분선
 candidate_df = get_bank_expense_transactions(
     str(start_date), str(end_date)
 )  # 날짜를 문자열로 변환하여 함수에 전달
+print(candidate_df)
 
 # 조회된 거래 내역이 비어있지 않은 경우 AG Grid 표시
 if not candidate_df.empty:
@@ -75,6 +76,8 @@ if not candidate_df.empty:
                 "headerCheckboxSelection": False,  # 헤더 체크박스 비활성화
             },
             {"field": "content", "headerName": "내용", "width": 300},  # 내용 컬럼
+            {"field": "transaction_type", "headerName": "타입", "width": 100},
+            {"field": "summary_content", "headerName": "적요", "width": 100},
             {
                 "field": "transaction_amount",  # 금액 컬럼
                 "headerName": "금액",

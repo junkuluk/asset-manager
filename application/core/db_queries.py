@@ -538,7 +538,7 @@ def get_bank_expense_transactions(start_date, end_date):
     conn = st.connection("supabase", type="sql")
     # 은행 지출 거래를 조회하는 SQL 쿼리
     query = """
-        SELECT id, transaction_date, content, transaction_amount
+        SELECT id, transaction_date, transaction_type, content, summary_content, transaction_amount
         FROM "transaction"
         WHERE type = 'EXPENSE' AND transaction_type = 'BANK'
           AND transaction_date::date BETWEEN :start_date AND :end_date

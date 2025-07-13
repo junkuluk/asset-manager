@@ -276,8 +276,10 @@ with col1:
                 "BANK_ACCOUNT",
                 "CREDIT_CARD",
                 "CASH",
-                "STOCK_ASSET",
+                "SAVINGS",
+                "STOCKS",
                 "FUND",
+                "CRYPTOCURRENCY",
                 "REAL_ESTATE",
             ],
         )
@@ -297,7 +299,7 @@ with col1:
         if submitted and acc_name:  # 제출되었고 계좌 이름이 있는 경우
             # 새 계좌 추가 함수 호출
             success, message = add_new_account(
-                acc_name, acc_type, is_asset, initial_balance
+                acc_name, acc_type, is_asset, is_invest, initial_balance
             )
             if success:
                 st.success(message)  # 성공 메시지
@@ -347,9 +349,9 @@ with st.expander("규칙 엔진 전체 재적용"):
             st.success(message)  # 결과 메시지
 
     # '미분류' 거래 카테고리 재적용 버튼
-    if st.button("'미분류' 거래 카테고리 재적용"):
-        with st.spinner("미분류 거래에 대해 카테고리 규칙을 실행 중입니다..."):
-            message = (
-                run_engine_and_update_db_final()
-            )  # 미분류 거래에 규칙 엔진 재적용 함수 호출
-            st.success(message)  # 결과 메시지
+    # if st.button("'미분류' 거래 카테고리 재적용"):
+    #     with st.spinner("미분류 거래에 대해 카테고리 규칙을 실행 중입니다..."):
+    #         message = (
+    #             run_engine_and_update_db_final()
+    #         )  # 미분류 거래에 규칙 엔진 재적용 함수 호출
+    #         st.success(message)  # 결과 메시지

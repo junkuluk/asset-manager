@@ -385,8 +385,8 @@ def insert_bank_transactions_from_excel(filepath):
                 insert_trans_query = text(
                     """
                     INSERT INTO "transaction" (type, transaction_type, transaction_provider, category_id, transaction_party_id,
-                                            transaction_date, transaction_amount, content, account_id, linked_account_id)
-                    VALUES (:type, 'BANK', 'SHINHAN_BANK', :cat_id, 1, :t_date, :t_amount, :content, :acc_id, :linked_id)
+                                            transaction_date, transaction_amount, content, account_id, linked_account_id, summary_content)
+                    VALUES (:type, 'BANK', 'SHINHAN_BANK', :cat_id, 1, :t_date, :t_amount, :content, :acc_id, :linked_id, :summary_content)
                     RETURNING id
                 """
                 )
@@ -414,6 +414,7 @@ def insert_bank_transactions_from_excel(filepath):
                         "content": content,
                         "acc_id": int(bank_account_id),
                         "linked_id": linked_id,
+                        "summary_content": row["적요"],
                     },
                 )
                 transaction_id = result.scalar_one()  # 삽입된 ID 가져오기

@@ -205,6 +205,7 @@ def identify_transfers(df: pd.DataFrame) -> pd.Series:
     return final_linked_ids
 
 
+# should not be used until this is get fixed.
 def run_engine_and_update_db_final():
     """
     데이터베이스에 저장된 미분류 거래(수입/지출)에 대해 규칙 엔진을 실행하고,

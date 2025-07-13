@@ -11,21 +11,17 @@ from core.seeder import (  # 초기 데이터 삽입 함수들
     seed_initial_accounts,
     seed_initial_transfer_rules,
 )
-from core.ui_utils import (
-    apply_common_styles,
-    authenticate_user,
-    logout_button,
-)  # UI 및 인증 유틸리티
+from core import ui_utils
 
 # 모든 페이지에 공통 CSS 스타일 적용
-apply_common_styles()
+ui_utils.apply_common_styles()
 
 # 사용자 인증. 인증에 실패하면 앱 실행 중단.
-if not authenticate_user():
+if not ui_utils.authenticate_user():
     st.stop()
 
 # 로그아웃 버튼 표시 (인증된 경우에만 보임)
-logout_button()
+ui_utils.logout_button()
 
 print(f"APP_DIR:{config.APP_DIR}")
 print(f"BASE_DIR:{config.BASE_DIR}")
