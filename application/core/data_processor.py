@@ -129,7 +129,7 @@ def insert_card_transactions_from_excel(filepath):
     df["type"] = "EXPENSE"
     # 거래 종류를 'CARD'로 고정
     df["transaction_type"] = "CARD"
-    df["income_content"] = "NA"
+    df["bank_content"] = "NA"
     # 거래 당사자 ID를 기본값 1로 설정
     df["transaction_party_id"] = 1  # 기본값
 
@@ -336,7 +336,7 @@ def insert_bank_transactions_from_excel(filepath):
     df["amount"] = df["입금"].fillna(0) - df["출금"].fillna(0)
     # 거래 금액의 절댓값을 'transaction_amount'로 저장 (정수형)
     df["transaction_amount"] = df["amount"].abs().astype(int)
-    df["income_content"] = df["내용"].astype(str)
+    df["bank_content"] = df["내용"].astype(str)
 
     # 이체 거래를 식별하고 연결된 계좌 ID 반환
     linked_account_id_series = identify_transfers(df)
