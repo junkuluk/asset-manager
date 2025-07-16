@@ -76,7 +76,7 @@ else:
 
         with col4:
             # 금액은 정수(BIGINT)이므로 step=1로 설정하여 소수점 입력을 방지합니다.
-            input_amount = st.number_input("거래 금액", min_value=0, step=100000)
+            input_amount = st.number_input("거래 금액", step=100000)
 
         input_content = st.text_area("내용")
         input_description = st.text_input("메모")

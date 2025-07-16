@@ -66,6 +66,63 @@
   },
 
   {
+    "description": "영준 실비보험",
+    "priority": 1,
+    "category_code": "YOUNGJUN_INSURANCE",
+    "conditions": [
+      {
+        "column": "bank_content",
+        "match_type": "EXACT",
+        "value": "한화손해보험(주)"
+      },
+      {
+        "column": "transaction_amount",
+        "match_type": "EQUALS",
+        "value": "61530"
+      }
+    ]
+  },
+  {
+    "description": "영준 보험",
+    "priority": 1,
+    "category_code": "YOUNGJUN_INSURANCE",
+    "conditions": [
+      { "column": "bank_content", "match_type": "EXACT", "value": "양영준" },
+      {
+        "column": "transaction_amount",
+        "match_type": "EQUALS",
+        "value": "41600"
+      }
+    ]
+  },
+  {
+    "description": "영준 보험",
+    "priority": 1,
+    "category_code": "YOUNGJUN_INSURANCE",
+    "conditions": [
+      { "column": "bank_content", "match_type": "EXACT", "value": "양영준" },
+      {
+        "column": "transaction_amount",
+        "match_type": "EQUALS",
+        "value": "57400"
+      }
+    ]
+  },
+  {
+    "description": "영준 보험",
+    "priority": 1,
+    "category_code": "YOUNGJUN_INSURANCE",
+    "conditions": [
+      { "column": "bank_content", "match_type": "EXACT", "value": "현대" },
+      {
+        "column": "transaction_amount",
+        "match_type": "EQUALS",
+        "value": "36500"
+      }
+    ]
+  },
+
+  {
     "description": "세아 보험",
     "priority": 1,
     "category_code": "SEA_INSURANCE",
@@ -108,6 +165,47 @@
   },
 
   {
+    "description": "세아 보험",
+    "priority": 1,
+    "category_code": "SEA_INSURANCE",
+    "conditions": [
+      { "column": "bank_content", "match_type": "CONTAINS", "value": "현대" },
+      {
+        "column": "transaction_amount",
+        "match_type": "EQUALS",
+        "value": "21230"
+      }
+    ]
+  },
+
+  {
+    "description": "세아 보험",
+    "priority": 1,
+    "category_code": "SEA_INSURANCE",
+    "conditions": [
+      { "column": "bank_content", "match_type": "CONTAINS", "value": "현대" },
+      {
+        "column": "transaction_amount",
+        "match_type": "EQUALS",
+        "value": "17980"
+      }
+    ]
+  },
+
+  {
+    "description": "세아 보험",
+    "priority": 1,
+    "category_code": "SEA_INSURANCE",
+    "conditions": [
+      { "column": "bank_content", "match_type": "CONTAINS", "value": "현대" },
+      {
+        "column": "transaction_amount",
+        "match_type": "EQUALS",
+        "value": "36500"
+      }
+    ]
+  },
+  {
     "description": "혜인 보험",
     "priority": 1,
     "category_code": "HYEIN_INSURANCE",
@@ -149,6 +247,47 @@
   },
 
   {
+    "description": "혜인 보험",
+    "priority": 1,
+    "category_code": "HYEIN_INSURANCE",
+    "conditions": [
+      { "column": "bank_content", "match_type": "CONTAINS", "value": "DB손" },
+      {
+        "column": "transaction_amount",
+        "match_type": "EQUALS",
+        "value": "104430"
+      }
+    ]
+  },
+  {
+    "description": "혜인 보험",
+    "priority": 1,
+    "category_code": "HYEIN_INSURANCE",
+    "conditions": [
+      { "column": "bank_content", "match_type": "CONTAINS", "value": "새마을" },
+      {
+        "column": "transaction_amount",
+        "match_type": "EQUALS",
+        "value": "34100"
+      }
+    ]
+  },
+
+  {
+    "description": "혜인 보험",
+    "priority": 1,
+    "category_code": "HYEIN_INSURANCE",
+    "conditions": [
+      { "column": "bank_content", "match_type": "CONTAINS", "value": "새마을" },
+      {
+        "column": "transaction_amount",
+        "match_type": "EQUALS",
+        "value": "100000"
+      }
+    ]
+  },
+
+  {
     "description": "하이패스",
     "priority": 1,
     "category_code": "HI_PASS",
@@ -156,7 +295,7 @@
       {
         "column": "content",
         "match_type": "CONTAINS",
-        "value": "고속도로　통행료"
+        "value": "고속도로 통행료"
       }
     ]
   },
@@ -232,6 +371,27 @@
   },
 
   {
+    "description": "장보기",
+    "priority": 1,
+    "category_code": "GROCERIES",
+    "conditions": [
+      { "column": "bank_content", "match_type": "CONTAINS", "value": "이마트" }
+    ]
+  },
+  {
+    "description": "장보기",
+    "priority": 1,
+    "category_code": "GROCERIES",
+    "conditions": [
+      {
+        "column": "bank_content",
+        "match_type": "CONTAINS",
+        "value": "홈플러스"
+      }
+    ]
+  },
+
+  {
     "description": "가스비",
     "priority": 1,
     "category_code": "GAS_BILL",
@@ -250,6 +410,14 @@
     "category_code": "CAR_EXPENSE",
     "conditions": [
       { "column": "content", "match_type": "CONTAINS", "value": "주유소" }
+    ]
+  },
+  {
+    "description": "주유비",
+    "priority": 1,
+    "category_code": "CAR_EXPENSE",
+    "conditions": [
+      { "column": "bank_content", "match_type": "CONTAINS", "value": "주유소" }
     ]
   },
 
@@ -273,6 +441,15 @@
     "category_code": "DELIVERY_FOOD",
     "conditions": [
       { "column": "content", "match_type": "EXACT", "value": "쿠팡이츠" }
+    ]
+  },
+
+  {
+    "description": "쿠팡 이츠 사용료",
+    "priority": 1,
+    "category_code": "DELIVERY_FOOD",
+    "conditions": [
+      { "column": "bank_content", "match_type": "EXACT", "value": "쿠팡이츠" }
     ]
   },
 
@@ -313,11 +490,59 @@
   },
 
   {
+    "description": "편의점",
+    "priority": 1,
+    "category_code": "CONVENIENCE_STORE",
+    "conditions": [
+      { "column": "bank_content", "match_type": "CONTAINS", "value": "GS25" }
+    ]
+  },
+
+  {
+    "description": "편의점",
+    "priority": 1,
+    "category_code": "CONVENIENCE_STORE",
+    "conditions": [
+      {
+        "column": "bank_content",
+        "match_type": "CONTAINS",
+        "value": "세븐일레븐"
+      }
+    ]
+  },
+
+  {
+    "description": "편의점",
+    "priority": 1,
+    "category_code": "CONVENIENCE_STORE",
+    "conditions": [
+      { "column": "bank_content", "match_type": "CONTAINS", "value": "씨유" }
+    ]
+  },
+
+  {
+    "description": "편의점",
+    "priority": 1,
+    "category_code": "CONVENIENCE_STORE",
+    "conditions": [
+      { "column": "bank_content", "match_type": "CONTAINS", "value": "(CU)" }
+    ]
+  },
+
+  {
     "description": "약국",
     "priority": 1,
     "category_code": "PHARMACY",
     "conditions": [
       { "column": "content", "match_type": "CONTAINS", "value": "약국" }
+    ]
+  },
+  {
+    "description": "약국",
+    "priority": 1,
+    "category_code": "PHARMACY",
+    "conditions": [
+      { "column": "bank_content", "match_type": "CONTAINS", "value": "약국" }
     ]
   },
 
@@ -335,7 +560,11 @@
     "priority": 1,
     "category_code": "OTT_BILL",
     "conditions": [
-      { "column": "content", "match_type": "EXACT", "value": "Netflix_INICIS" }
+      {
+        "column": "bank_content",
+        "match_type": "EXACT",
+        "value": "Netflix_INICIS"
+      }
     ]
   },
 
@@ -345,7 +574,7 @@
     "category_code": "SALARY",
     "conditions": [
       {
-        "column": "income_content",
+        "column": "bank_content",
         "match_type": "EXACT",
         "value": "급여현대오토에버"
       }
@@ -357,7 +586,7 @@
     "category_code": "MOBILE_SUBSIDY",
     "conditions": [
       {
-        "column": "income_content",
+        "column": "bank_content",
         "match_type": "EXACT",
         "value": "오토에버경비"
       }
@@ -369,7 +598,7 @@
     "category_code": "CHILD_SUBSIDY",
     "conditions": [
       {
-        "column": "income_content",
+        "column": "bank_content",
         "match_type": "CONTAINS",
         "value": "부모급여"
       }
@@ -381,7 +610,7 @@
     "category_code": "CHILD_SUBSIDY",
     "conditions": [
       {
-        "column": "income_content",
+        "column": "bank_content",
         "match_type": "CONTAINS",
         "value": "아동수당"
       }
