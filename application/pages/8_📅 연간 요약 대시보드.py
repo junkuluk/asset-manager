@@ -246,6 +246,7 @@ st.subheader(f"{selected_year}년 월말 자산 현황")  # 월말 자산 현황
 # 선택된 연도의 월말 자산 현황 데이터 로드
 asset_df = get_annual_asset_summary(selected_year)
 
+
 # 자산 변동 내역이 없는 경우 정보 메시지 표시
 if asset_df.empty:
     st.info("해당 기간의 자산 변동 내역이 없습니다.")

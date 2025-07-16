@@ -127,6 +127,19 @@ else:
     # 히트맵 데이터가 비어있지 않은 경우
     if not heatmap_df.empty:
         # 히트맵을 위한 피벗 테이블 생성 (인덱스: 카테고리, 컬럼: 연월, 값: 금액)
+
+        sorted_categories = (
+            heatmap_df[["카테고리패스", "카테고리"]]
+            .drop_duplicates()
+            .sort_values("카테고리패스")["카테고리"]
+            .tolist()
+        )
+
+        # 2. '카테고리' 컬럼을 위에서 만든 순서를 따르는 Categorical 타입으로 변환
+        heatmap_df["카테고리"] = pd.Categorical(
+            heatmap_df["카테고리"], categories=sorted_categories, ordered=True
+        )
+
         pivot_df = heatmap_df.pivot_table(
             index="카테고리", columns="연월", values="금액", fill_value=0
         )

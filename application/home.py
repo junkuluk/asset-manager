@@ -23,11 +23,6 @@ if not ui_utils.authenticate_user():
 # 로그아웃 버튼 표시 (인증된 경우에만 보임)
 ui_utils.logout_button()
 
-print(f"APP_DIR:{config.APP_DIR}")
-print(f"BASE_DIR:{config.BASE_DIR}")
-print(f"STATIC_DIR:{config.STATIC_DIR}")
-print(f"SCHEMA_PATH:{config.SCHEMA_PATH}")
-
 
 # Streamlit 페이지 설정 (페이지 제목, 아이콘, 레이아웃 등)
 st.set_page_config(layout="wide", page_title="나의 자산 관리 대시보드", page_icon="💰")

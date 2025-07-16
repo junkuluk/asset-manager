@@ -1,0 +1,186 @@
+[
+  {
+    "code": "EXPENSE",
+    "desc": "지출",
+    "children": [
+      {
+        "code": "FIXED_EXPENSE",
+        "desc": "고정 지출",
+        "children": [
+          {
+            "code": "ALLOWANCE",
+            "desc": "용돈",
+            "children": [
+              { "code": "ALLOWANCE_YOUNGJUN", "desc": "영준용돈" },
+              { "code": "ALLOWANCE_HYEIN", "desc": "혜인용돈" },
+              { "code": "ALLOWANCE_YOUNGJUN_MON", "desc": "어머니용돈" },
+              { "code": "FAMILY_GATHERING", "desc": "가족모임" }
+            ]
+          },
+          {
+            "code": "HOUSING_EXPENSE",
+            "desc": "주거비",
+            "children": [
+              { "code": "MONTHLY_RENT", "desc": "대출이자" },
+              { "code": "MANAGEMENT_FEE", "desc": "관리비" }
+            ]
+          },
+          {
+            "code": "UTILITY_BILLS",
+            "desc": "공과금",
+            "children": [
+              { "code": "ELECTRICITY_BILL", "desc": "전기" },
+              { "code": "WATER_BILL", "desc": "수도" },
+              { "code": "GAS_BILL", "desc": "가스" }
+            ]
+          },
+          {
+            "code": "COMMUNICATION_EXPENSE",
+            "desc": "통신비",
+            "children": [
+              { "code": "INTERNET_TV_BILL", "desc": "인터넷TV요금" },
+              { "code": "OTT_BILL", "desc": "구독료" },
+              { "code": "MOBILE_BILL_YOUNGJUN", "desc": "영준핸드폰" },
+              { "code": "MOBILE_BILL_HYEIN", "desc": "혜인핸드폰" }
+            ]
+          },
+          {
+            "code": "INSURANCE_EXPENSE",
+            "desc": "보험료",
+            "children": [
+              { "code": "YOUNGJUN_INSURANCE", "desc": "영준보험" },
+              { "code": "HYEIN_INSURANCE", "desc": "혜인보험" },
+              { "code": "SEA_INSURANCE", "desc": "세아보험" }
+            ]
+          },
+          {
+            "code": "TRANSPORTATION_EXPENSE",
+            "desc": "교통비",
+            "children": [
+              { "code": "PUBLIC_TRANSPORT", "desc": "대중교통비" },
+              { "code": "CAR_EXPENSE", "desc": "차량유지비" },
+              { "code": "CAR_INSURANCE", "desc": "차량보험" },
+              { "code": "HI_PASS", "desc": "하이패스" }
+            ]
+          },
+          {
+            "code": "FIX_CHILDCARE_EXPENSE",
+            "desc": "육아비",
+            "children": [{ "code": "CHILDCARE_EDUCATION", "desc": "교육비" }]
+          },
+          {
+            "code": "MEMBERSHIP",
+            "desc": "회원료"
+          }
+        ]
+      },
+      {
+        "code": "VARIABLE_EXPENSE",
+        "desc": "변동 지출",
+        "children": [
+          {
+            "code": "FOOD_EXPENSE",
+            "desc": "식비",
+            "children": [
+              { "code": "DINING_OUT", "desc": "외식비" },
+              { "code": "DELIVERY_FOOD", "desc": "배달비" },
+              { "code": "CONVENIENCE_STORE", "desc": "편의점" },
+              { "code": "GROCERIES", "desc": "마트" }
+            ]
+          },
+          {
+            "code": "LIVING_EXPENSE",
+            "desc": "생활비",
+            "children": [
+              { "code": "LIVING_ITEMS", "desc": "생활용품" },
+              { "code": "CLOTHING", "desc": "의류비" },
+              { "code": "BEAUTY", "desc": "미용비" },
+              { "code": "LEISURE_EXPENSE", "desc": "문화비" },
+              { "code": "LIVING_ETC", "desc": "기타" },
+              { "code": "FURNITURE_ELECTRONICS", "desc": "가전제품" }
+            ]
+          },
+          {
+            "code": "VAR_CHILDCARE_EXPENSE",
+            "desc": "육아비",
+            "children": [
+              { "code": "CHILDCARE_EXPERIENCE", "desc": "체험비" },
+              { "code": "CHILDCARE_PRODUCTS", "desc": "육아용품" },
+              { "code": "CHILDCARE_CLOTHS", "desc": "육아의류" }
+            ]
+          },
+          {
+            "code": "MEDICAL_EXPENSE",
+            "desc": "의료비",
+            "children": [
+              { "code": "HOSPITAL_EXPENSE", "desc": "병원비" },
+              { "code": "PHARMACY", "desc": "의약품" }
+            ]
+          },
+          {
+            "code": "ETC_EXPENSE",
+            "desc": "기타",
+            "children": [
+              { "code": "EVENT_EXPENSE", "desc": "경조사비" },
+              { "code": "ONE_TIME_PURCHASE", "desc": "일회성" },
+              { "code": "SELF_DEVELOPMENT", "desc": "자기계발" }
+            ]
+          }
+        ]
+      },
+      { "code": "UNCATEGORIZED", "desc": "미분류 지출" }
+    ]
+  },
+  {
+    "code": "INCOME",
+    "desc": "수입",
+    "children": [
+      {
+        "code": "FIXED_INCOME",
+        "desc": "고정 수입",
+        "children": [
+          { "code": "SALARY", "desc": "급여" },
+          {
+            "code": "SUBSIDY",
+            "desc": "지원금",
+            "children": [
+              { "code": "CHILD_SUBSIDY", "desc": "아동수당" },
+              { "code": "MOBILE_SUBSIDY", "desc": "핸드폰지원금" }
+            ]
+          }
+        ]
+      },
+      {
+        "code": "VARIABLE_INCOME",
+        "desc": "변동 수입",
+        "children": [
+          { "code": "INCENTIVE", "desc": "인센티브" },
+          { "code": "ETC_INCOME", "desc": "기타수입" },
+          { "code": "FINANCIAL_INCOME", "desc": "금융수입" }
+        ]
+      },
+      { "code": "UNCATEGORIZED", "desc": "미분류 수입" }
+    ]
+  },
+  {
+    "code": "INVEST",
+    "desc": "투자",
+    "children": [
+      {
+        "code": "INVESTMENT",
+        "desc": "투자",
+        "children": [
+          { "code": "SAVINGS", "desc": "저축" },
+          { "code": "STOCKS", "desc": "주식" },
+          { "code": "CRYPTOCURRENCY", "desc": "비트코인" },
+          { "code": "REAL_ESTATE", "desc": "부동산" }
+        ]
+      }
+    ]
+  },
+  {
+    "code": "TRANSFER",
+    "desc": "내부 이체",
+    "children": [{ "code": "CARD_PAYMENT", "desc": "카드대금 이체" }]
+  }
+]

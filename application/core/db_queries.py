@@ -91,7 +91,7 @@ def get_all_categories(
 
     conn = st.connection("supabase", type="sql")
     # 기본 SQL 쿼리 시작
-    query_parts = ["SELECT id, description FROM category"]
+    query_parts = ["SELECT id, description, materialized_path_desc FROM category"]
     conditions = []
     params = {}
 
@@ -108,7 +108,7 @@ def get_all_categories(
         query_parts.append("WHERE " + " AND ".join(conditions))
 
     # 결과 정렬 조건 추가
-    query_parts.append("ORDER BY description")
+    query_parts.append("ORDER BY materialized_path_desc")
     # 최종 SQL 쿼리 문자열 생성
     final_query = " ".join(query_parts)
 
@@ -445,13 +445,14 @@ def load_monthly_category_summary(start_date, end_date, transaction_type):
         SELECT 
             to_char(t.transaction_date, 'YYYY/MM') as "연월",
             c.description as "카테고리",
+            c.materialized_path_desc as "카테고리패스",
             SUM(t.transaction_amount) as "금액"
         FROM "transaction" t
         JOIN "category" c ON t.category_id = c.id
         WHERE t.type = :transaction_type AND t.transaction_date::date BETWEEN :start_date AND :end_date
           AND c.id NOT IN (SELECT DISTINCT parent_id FROM category WHERE parent_id IS NOT NULL) -- 부모 카테고리가 아닌 (최하위) 카테고리만 포함
-        GROUP BY "연월", "카테고리"
-        ORDER BY "연월", "금액" DESC
+        GROUP BY "연월", "카테고리", "카테고리패스"
+        ORDER BY "연월", "카테고리패스", "금액" DESC
     """
 
     # 쿼리 실행 및 결과 반환
@@ -623,7 +624,7 @@ def get_all_accounts_df():
     # 계좌 정보를 조회하고 'type'(자산/부채) 및 'investment'(투자/비투자) 컬럼 추가
     query = """
         SELECT 
-            id, name, account_type, initial_balance, balance,
+            id, name, account_type, balance,
             CASE WHEN is_asset = true THEN '자산' ELSE '부채' END as type, 
             CASE WHEN is_investment = true THEN '투자' ELSE '비투자' END as investment
         FROM accounts 
@@ -818,7 +819,12 @@ def get_annual_asset_summary(year: int):
             SELECT account_id, transaction_date,
                         CASE WHEN type IN ('INCOME') THEN transaction_amount ELSE -transaction_amount END as change
             FROM "transaction"
-            WHERE account_id IS NOT NULL AND to_char(transaction_date, 'YYYY') = :year_str
+            WHERE account_id IS NOT NULL AND to_char(transaction_date, 'YYYY') = :year_str AND transaction_type != 'MANUAL'
+            UNION ALL -- 두 쿼리 결과를 합침
+            SELECT account_id, transaction_date,
+                        CASE WHEN type IN ('INVEST') THEN transaction_amount ELSE -transaction_amount END as change
+            FROM "transaction"
+            WHERE account_id IS NOT NULL AND to_char(transaction_date, 'YYYY') = :year_str AND transaction_type ='MANUAL'
             UNION ALL -- 두 쿼리 결과를 합침
             SELECT linked_account_id, transaction_date,
                         CASE WHEN type = 'INVEST' THEN transaction_amount ELSE -transaction_amount END as change

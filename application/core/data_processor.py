@@ -370,7 +370,7 @@ def insert_bank_transactions_from_excel(filepath):
         df.update(categorized_subset)
         categorized_subset = run_rule_engine(df_to_categorize, default_income_cat_id)
         # 원본 데이터프레임에 분류된 결과 업데이트
-        print(categorized_subset)
+
         df.update(categorized_subset)
 
     # 은행 계좌 ID가 성공적으로 조회되었는지 확인

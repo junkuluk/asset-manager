@@ -70,7 +70,7 @@
     "priority": 1,
     "category_code": "SEA_INSURANCE",
     "conditions": [
-      { "column": "content", "match_type": "EXACT", "value": "현대" },
+      { "column": "content", "match_type": "CONTAINS", "value": "현대" },
       {
         "column": "transaction_amount",
         "match_type": "EQUALS",
@@ -112,7 +112,7 @@
     "priority": 1,
     "category_code": "HYEIN_INSURANCE",
     "conditions": [
-      { "column": "content", "match_type": "EXACT", "value": "DB손" },
+      { "column": "content", "match_type": "CONTAINS", "value": "DB손" },
       {
         "column": "transaction_amount",
         "match_type": "EQUALS",
@@ -149,9 +149,9 @@
   },
 
   {
-    "description": "대중교통",
+    "description": "하이패스",
     "priority": 1,
-    "category_code": "PUBLIC_TRANSPORT",
+    "category_code": "HI_PASS",
     "conditions": [
       {
         "column": "content",
@@ -200,9 +200,17 @@
   {
     "description": "핸드폰 사용료",
     "priority": 1,
-    "category_code": "MOBILE_BILL",
+    "category_code": "COMMUNICATION_EXPENSE",
     "conditions": [
-      { "column": "content", "match_type": "EXACT", "value": "KT통신요금" }
+      { "column": "content", "match_type": "CONTAINS", "value": "KT통신요금" }
+    ]
+  },
+  {
+    "description": "인터넷TV 사용료",
+    "priority": 1,
+    "category_code": "INTERNET_TV_BILL",
+    "conditions": [
+      { "column": "content", "match_type": "CONTAINS", "value": "KT유선상품" }
     ]
   },
 
@@ -239,30 +247,16 @@
   {
     "description": "주유비",
     "priority": 1,
-    "category_code": "FUEL_EXPENSE",
+    "category_code": "CAR_EXPENSE",
     "conditions": [
       { "column": "content", "match_type": "CONTAINS", "value": "주유소" }
     ]
   },
 
   {
-    "description": "고정비",
-    "priority": 1,
-    "category_code": "FIXED_EXPENSE",
-    "conditions": [
-      { "column": "content", "match_type": "EXACT", "value": "현대카드(주)" },
-      {
-        "column": "transaction_amount",
-        "match_type": "EQUALS",
-        "value": "7890"
-      }
-    ]
-  },
-
-  {
     "description": "쿠팡 와우 회원 사용료",
     "priority": 1,
-    "category_code": "COUPANG_MEMBERSHIP",
+    "category_code": "MEMBERSHIP",
     "conditions": [
       { "column": "content", "match_type": "EXACT", "value": "쿠팡(쿠페이)" },
       {
@@ -296,7 +290,7 @@
     "priority": 1,
     "category_code": "CONVENIENCE_STORE",
     "conditions": [
-      { "column": "content", "match_type": "EXACT", "value": "세븐일레븐" }
+      { "column": "content", "match_type": "CONTAINS", "value": "세븐일레븐" }
     ]
   },
 
@@ -305,7 +299,7 @@
     "priority": 1,
     "category_code": "CONVENIENCE_STORE",
     "conditions": [
-      { "column": "content", "match_type": "EXACT", "value": "씨유" }
+      { "column": "content", "match_type": "CONTAINS", "value": "씨유" }
     ]
   },
 
@@ -314,7 +308,7 @@
     "priority": 1,
     "category_code": "CONVENIENCE_STORE",
     "conditions": [
-      { "column": "content", "match_type": "EXACT", "value": "(CU)" }
+      { "column": "content", "match_type": "CONTAINS", "value": "(CU)" }
     ]
   },
 
@@ -339,7 +333,7 @@
   {
     "description": "통신비(TV, 인터넷)",
     "priority": 1,
-    "category_code": "COMMUNICATION_EXPENSE",
+    "category_code": "OTT_BILL",
     "conditions": [
       { "column": "content", "match_type": "EXACT", "value": "Netflix_INICIS" }
     ]
@@ -366,6 +360,30 @@
         "column": "income_content",
         "match_type": "EXACT",
         "value": "오토에버경비"
+      }
+    ]
+  },
+  {
+    "description": "부모급여",
+    "priority": 1,
+    "category_code": "CHILD_SUBSIDY",
+    "conditions": [
+      {
+        "column": "income_content",
+        "match_type": "CONTAINS",
+        "value": "부모급여"
+      }
+    ]
+  },
+  {
+    "description": "아동수당",
+    "priority": 1,
+    "category_code": "CHILD_SUBSIDY",
+    "conditions": [
+      {
+        "column": "income_content",
+        "match_type": "CONTAINS",
+        "value": "아동수당"
       }
     ]
   }

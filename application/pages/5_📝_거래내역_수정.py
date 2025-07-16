@@ -108,7 +108,7 @@ with col3:
     # 거래 구분 필터 멀티셀렉트. 변경 시 load_data 함수 호출.
     st.multiselect(
         "거래 구분 필터",
-        options=["EXPENSE", "INCOME", "INVEST", "TRANSFER", "ADJUSTMENT"],
+        options=["EXPENSE", "INCOME", "INVEST", "TRANSFER"],
         key="editor_selected_types",
         on_change=load_data,
     )
@@ -156,7 +156,7 @@ else:
         if (transactionType === 'EXPENSE') {{ return {{'values': {list(expense_categories.values())} }}; }} /* 지출 카테고리 목록 */
         else if (transactionType === 'INCOME') {{ return {{'values': {list(income_categories.values())} }}; }} /* 수입 카테고리 목록 */
         else if (transactionType === 'INVEST') {{ return {{'values': {list(invest_categories.values())} }}; }} /* 투자 카테고리 목록 */
-        else if (transactionType === 'TRANSFER') {{ return {{'values': {list(transfer_categories.values())} }}; }} /* 이체 카테고리 목록 */
+        else if (transactionType === 'TRANSFER') {{ return {{'values': {list(transfer_categories.values())+list(expense_categories.values())} }}; }} /* 이체 카테고리 목록 */
         else {{ return {{'values': [] }}; }} /* 그 외의 경우 빈 목록 */
     }}
     """

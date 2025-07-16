@@ -61,10 +61,20 @@ st.markdown("---")  # 구분선
 candidate_df = get_bank_expense_transactions(
     str(start_date), str(end_date)
 )  # 날짜를 문자열로 변환하여 함수에 전달
+
 print(candidate_df)
 
+exclude_keywords = ["신한체"]
+
+condition_to_exclude = candidate_df["summary_content"].str.contains(
+    "|".join(exclude_keywords), na=False
+)
+
+# 3. '~' 연산자로 조건을 뒤집어 원하는 행만 필터링
+filtered_df = candidate_df[~condition_to_exclude]
+
 # 조회된 거래 내역이 비어있지 않은 경우 AG Grid 표시
-if not candidate_df.empty:
+if not filtered_df.empty:
     # AG Grid 컬럼 정의 및 옵션 설정
     gridOptions = {
         "columnDefs": [
@@ -96,9 +106,12 @@ if not candidate_df.empty:
     }
 
     st.write("##### 1. 이체로 변경할 거래 선택")  # 안내 메시지
+    st.write(
+        "###### 신한체크카드 사용내역은 자동 필터링하였으나, 혹시 모르니 변경시 주의바람"
+    )  # 안내 메시지
     # AG Grid 테이블 표시 및 사용자 상호작용에 따른 응답 받기
     candidate_grid_response = AgGrid(
-        candidate_df,  # 표시할 데이터프레임
+        filtered_df,  # 표시할 데이터프레임
         gridOptions=gridOptions,  # 그리드 옵션 적용
         height=300,  # 그리드 높이
         width="100%",  # 그리드 너비
@@ -116,6 +129,7 @@ if not candidate_df.empty:
         selected_row_data = selected_candidate.iloc[0]  # 선택된 첫 번째 행의 데이터
 
         st.write("##### 2. 이체 대상 계좌 선택 및 실행")  # 안내 메시지
+        st.write("###### 중요 체크카드 결재는 이체대상이 아닙니다.!!!")  # 안내 메시지
         col_form, col_info = st.columns(2)  # 폼과 정보 표시를 위한 두 개의 컬럼
         with col_form:
             with st.form("reclassify_form"):  # 재분류 폼 생성

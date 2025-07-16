@@ -199,65 +199,65 @@ with col4:
 st.markdown("---")  # 구분선
 
 # --- 계좌 초기 잔액 수동 조정 섹션 ---
-st.subheader("💰 계좌 초기 잔액 수동 조정")
-st.write("초기 잔액 설정, 추적하지 않은 현금 사용 등 잔액을 직접 맞출 때 사용합니다.")
+# st.subheader("💰 계좌 초기 잔액 수동 조정")
+# st.write("초기 잔액 설정, 추적하지 않은 현금 사용 등 잔액을 직접 맞출 때 사용합니다.")
 
-accounts_map = get_all_accounts()  # 모든 계좌 정보 (이름:ID 딕셔너리) 로드
-account_names = list(accounts_map.keys())  # 계좌 이름 목록
+# accounts_map = get_all_accounts()  # 모든 계좌 정보 (이름:ID 딕셔너리) 로드
+# account_names = list(accounts_map.keys())  # 계좌 이름 목록
 
-if account_names:  # 등록된 계좌가 있는 경우에만 표시
-    col1, col2 = st.columns(2)  # 계좌 선택 폼과 조정 이력 목록을 위한 컬럼 분할
-    with col1:
-        selected_account_name = st.selectbox(  # 조정할 계좌 선택 드롭다운
-            "조정할 계좌 선택",
-            options=account_names,
-            key="selected_account_for_adj",  # 세션 상태 키
-        )
-        with st.form("adjustment_form"):  # 잔액 조정 폼
-            adjustment_amount = st.number_input(
-                "설정 금액", step=1000, value=0
-            )  # 조정 금액 입력
+# if account_names:  # 등록된 계좌가 있는 경우에만 표시
+#     col1, col2 = st.columns(2)  # 계좌 선택 폼과 조정 이력 목록을 위한 컬럼 분할
+#     with col1:
+#         selected_account_name = st.selectbox(  # 조정할 계좌 선택 드롭다운
+#             "조정할 계좌 선택",
+#             options=account_names,
+#             key="selected_account_for_adj",  # 세션 상태 키
+#         )
+#         with st.form("adjustment_form"):  # 잔액 조정 폼
+#             adjustment_amount = st.number_input(
+#                 "설정 금액", step=1000, value=0
+#             )  # 조정 금액 입력
 
-            submitted = st.form_submit_button("잔액 조정 실행")  # 제출 버튼
-            if submitted:
-                account_id = accounts_map[
-                    selected_account_name
-                ]  # 선택된 계좌 이름으로 ID 조회
-                conn = st.connection(
-                    "supabase", type="sql"
-                )  # Supabase 연결 (여기서는 불필요할 수 있음, 함수 내에서 처리)
-                try:
-                    # 초기 잔액 업데이트 함수 호출
-                    update_init_balance_and_log(account_id, adjustment_amount)
-                    st.success(
-                        f"'{selected_account_name}' 계좌의 잔액 조정이 완료되었습니다."
-                    )  # 성공 메시지
-                except Exception as e:
-                    st.error(f"오류 발생: {e}")  # 오류 메시지
+#             submitted = st.form_submit_button("잔액 조정 실행")  # 제출 버튼
+#             if submitted:
+#                 account_id = accounts_map[
+#                     selected_account_name
+#                 ]  # 선택된 계좌 이름으로 ID 조회
+#                 conn = st.connection(
+#                     "supabase", type="sql"
+#                 )  # Supabase 연결 (여기서는 불필요할 수 있음, 함수 내에서 처리)
+#                 try:
+#                     # 초기 잔액 업데이트 함수 호출
+#                     update_init_balance_and_log(account_id, adjustment_amount)
+#                     st.success(
+#                         f"'{selected_account_name}' 계좌의 잔액 조정이 완료되었습니다."
+#                     )  # 성공 메시지
+#                 except Exception as e:
+#                     st.error(f"오류 발생: {e}")  # 오류 메시지
 
-                st.rerun()  # 앱 재실행하여 변경사항 반영
+#                 st.rerun()  # 앱 재실행하여 변경사항 반영
 
-    with col2:
-        st.write("##### 거래 내역 조정 이력")  # 조정 이력 제목
-        # 선택된 계좌의 ID 가져옴
-        selected_id = accounts_map[st.session_state.selected_account_for_adj]
+#     with col2:
+#         st.write("##### 거래 내역 조정 이력")  # 조정 이력 제목
+#         # 선택된 계좌의 ID 가져옴
+#         selected_id = accounts_map[st.session_state.selected_account_for_adj]
 
-        # 계좌의 잔액 및 초기 잔액 상세 정보 조회
-        result = get_init_balance(selected_id)
+#         # 계좌의 잔액 및 초기 잔액 상세 정보 조회
+#         result = get_init_balance(selected_id)
 
-        if result is not None:
-            balance, init_balance = result
-            st.write(  # 현재 잔액 정보 출력
-                f"**선택된 계좌의 초기/거래 금액:** `{int(init_balance):,}`/`{int(balance):,}` **선택된 계좌의 현 잔액:** `{int(balance) + int(init_balance):,}`"
-            )
-            history_df = get_balance_history(selected_id)  # 잔액 변경 이력 로드
-            st.dataframe(history_df, use_container_width=True)  # 이력 데이터프레임 표시
-        else:
-            st.error(
-                f"계좌(ID: {selected_id})에 대한 잔액 정보를 가져올 수 없습니다."
-            )  # 정보 없음 오류
-else:
-    st.warning("먼저 계좌를 등록해주세요.")  # 등록된 계좌가 없을 때 경고
+#         if result is not None:
+#             balance, init_balance = result
+#             st.write(  # 현재 잔액 정보 출력
+#                 f"**선택된 계좌의 초기/거래 금액:** `{int(init_balance):,}`/`{int(balance):,}` **선택된 계좌의 현 잔액:** `{int(balance) + int(init_balance):,}`"
+#             )
+#             history_df = get_balance_history(selected_id)  # 잔액 변경 이력 로드
+#             st.dataframe(history_df, use_container_width=True)  # 이력 데이터프레임 표시
+#         else:
+#             st.error(
+#                 f"계좌(ID: {selected_id})에 대한 잔액 정보를 가져올 수 없습니다."
+#             )  # 정보 없음 오류
+# else:
+#     st.warning("먼저 계좌를 등록해주세요.")  # 등록된 계좌가 없을 때 경고
 
 st.subheader("🏦 계좌 관리")
 col1, col2 = st.columns([1, 2])  # 새 계좌 추가 폼과 계좌 목록을 위한 컬럼 분할
@@ -291,9 +291,10 @@ with col1:
         is_invest = st.radio(  # 투자/비투자 구분 라디오 버튼
             "투자 구분", [True, False], format_func=lambda x: "투자" if x else "비투자"
         )
-        initial_balance = st.number_input(
-            "초기 잔액 (없으면 0)", value=0, step=10000
-        )  # 초기 잔액 입력
+        # initial_balance = st.number_input(
+        #     "초기 잔액 (없으면 0)", value=0, step=10000
+        # )  # 초기 잔액 입력
+        initial_balance = 0
 
         submitted = st.form_submit_button("계좌 추가")  # 제출 버튼
         if submitted and acc_name:  # 제출되었고 계좌 이름이 있는 경우

@@ -628,3 +628,53 @@ def reclassify_all_transfers():
             )
         s.commit()  # 변경사항 커밋
         return f"총 {len(update_params)}건의 거래를 '이체'로 재분류했습니다."
+
+
+def add_manual_investment(invest_transaction):
+    # Supabase 데이터베이스 연결
+    conn = st.connection("supabase", type="sql")
+    with conn.session as s:
+        try:
+            insert_trans_query = text(
+                """
+                    INSERT INTO "transaction" (type, transaction_type, transaction_provider, category_id, transaction_party_id,
+                                            transaction_date, transaction_amount, content, description, account_id)
+                    VALUES (:type, 'MANUAL', 'MANUAL', :cat_id, :transaction_party_id, :t_date, :t_amount, :content, :description, :acc_id)
+                    RETURNING id
+                """
+            )
+            # 쿼리 실행 및 삽입된 거래의 ID 반환
+            result = s.execute(
+                insert_trans_query,
+                {
+                    "type": "INVEST",
+                    "cat_id": int(invest_transaction["category_id"]),
+                    "transaction_party_id": int(
+                        invest_transaction["transaction_party_id"]
+                    ),
+                    "t_date": invest_transaction["transaction_date"],
+                    "t_amount": int(invest_transaction["transaction_amount"]),
+                    "content": invest_transaction["content"],
+                    "description": invest_transaction["description"],
+                    "acc_id": int(invest_transaction["account_id"]),
+                },
+            )
+            transaction_id = result.scalar_one()  # 삽입된 ID 가져오기
+
+            change_amount = int(invest_transaction["transaction_amount"])
+            reason = f"거래 ID {transaction_id}: {invest_transaction["content"]}"
+            update_balance_and_log(
+                int(invest_transaction["account_id"]),
+                change_amount,
+                reason,
+                change_date=invest_transaction["transaction_date"],
+                session=s,
+            )
+
+            s.commit()
+            print("커밋 성공!")
+        except Exception as e:
+            # 데이터 처리 중 오류 발생 시 오류 메시지 출력 및 롤백
+            st.error(f"데이터 처리 중 오류 발생: {e}")
+            s.rollback()  # 오류 발생 시 모든 변경사항 롤백
+            return 0, 0
