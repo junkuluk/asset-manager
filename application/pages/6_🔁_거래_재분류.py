@@ -37,6 +37,30 @@ if "dialog_message" in st.session_state and st.session_state.dialog_message:
     st.toast(st.session_state.dialog_message)
     del st.session_state.dialog_message
 
+if "reclassify_initialized" not in st.session_state:
+    today = date.today()
+    # 데이터 로직용 상태
+    st.session_state.reclassify_start_date = today.replace(day=1)
+    st.session_state.reclassify_end_date = today
+
+    # 위젯 표시용 상태 (데이터 상태와 동일하게 초기화)
+    st.session_state.widget_reclassify_start_date = (
+        st.session_state.reclassify_start_date
+    )
+    st.session_state.widget_reclassify_end_date = st.session_state.reclassify_end_date
+
+    # 초기화 플래그 설정
+    st.session_state.reclassify_initialized = True
+
+
+def sync_reclassify_dates():
+    """위젯의 날짜 값을 데이터 로직용 날짜 상태로 복사합니다."""
+    st.session_state.reclassify_start_date = (
+        st.session_state.widget_reclassify_start_date
+    )
+    st.session_state.reclassify_end_date = st.session_state.widget_reclassify_end_date
+
+
 st.title("🔁 거래 성격 변경 (지출 → 이체/투자)")  # 페이지 메인 제목
 st.markdown(  # 페이지 설명
     "은행 출금 내역 중 '지출'로 잘못 분류된 항목을 카드값 납부나 투자 이체 등으로 변경합니다."
@@ -47,22 +71,30 @@ st.markdown("---")  # 구분선
 # 날짜 선택 위젯 설정
 today = date.today()  # 오늘 날짜
 default_start_date = today.replace(day=1)  # 기본 조회 시작일: 현재 월의 1일
-col1, col2 = st.columns(2)  # 두 개의 컬럼으로 레이아웃 분할
+col1, col2 = st.columns(2)
 with col1:
-    start_date = st.date_input(
-        "조회 시작일", value=default_start_date
-    )  # 조회 시작일 입력 필드
+    st.date_input(
+        "조회 시작일",
+        value=st.session_state.reclassify_start_date,  # 표시될 값 (데이터 상태)
+        key="widget_reclassify_start_date",  # 위젯 고유 키
+        on_change=sync_reclassify_dates,  # 콜백 함수
+    )
 with col2:
-    end_date = st.date_input("조회 종료일", value=today)  # 조회 종료일 입력 필드
+    st.date_input(
+        "조회 종료일",
+        value=st.session_state.reclassify_end_date,
+        key="widget_reclassify_end_date",
+        on_change=sync_reclassify_dates,
+    )
+
 
 st.markdown("---")  # 구분선
 
 # 선택된 기간의 은행 지출 거래 내역 로드
 candidate_df = get_bank_expense_transactions(
-    str(start_date), str(end_date)
-)  # 날짜를 문자열로 변환하여 함수에 전달
-
-print(candidate_df)
+    str(st.session_state.reclassify_start_date),
+    str(st.session_state.reclassify_end_date),
+)
 
 exclude_keywords = ["신한체"]
 

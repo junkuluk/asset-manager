@@ -87,7 +87,7 @@
     "priority": 1,
     "category_code": "YOUNGJUN_INSURANCE",
     "conditions": [
-      { "column": "bank_content", "match_type": "EXACT", "value": "양영준" },
+      { "column": "bank_content", "match_type": "CONTAINS", "value": "새마을" },
       {
         "column": "transaction_amount",
         "match_type": "EQUALS",
@@ -100,7 +100,7 @@
     "priority": 1,
     "category_code": "YOUNGJUN_INSURANCE",
     "conditions": [
-      { "column": "bank_content", "match_type": "EXACT", "value": "양영준" },
+      { "column": "bank_content", "match_type": "CONTAINS", "value": "새마을" },
       {
         "column": "transaction_amount",
         "match_type": "EQUALS",

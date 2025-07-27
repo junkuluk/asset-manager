@@ -96,7 +96,7 @@
               { "code": "CLOTHING", "desc": "의류비" },
               { "code": "BEAUTY", "desc": "미용비" },
               { "code": "LEISURE_EXPENSE", "desc": "문화비" },
-              { "code": "LIVING_ETC", "desc": "기타" },
+              { "code": "LIVING_ETC", "desc": "기타비" },
               { "code": "FURNITURE_ELECTRONICS", "desc": "가전제품" }
             ]
           },
@@ -119,7 +119,7 @@
           },
           {
             "code": "ETC_EXPENSE",
-            "desc": "기타",
+            "desc": "기타지출",
             "children": [
               { "code": "EVENT_EXPENSE", "desc": "경조사비" },
               { "code": "ONE_TIME_PURCHASE", "desc": "일회성" },

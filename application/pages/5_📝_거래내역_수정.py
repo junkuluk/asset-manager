@@ -75,14 +75,32 @@ def load_data():
 # Streamlit 세션 상태 초기화 (앱 최초 로드 시 한 번만 실행)
 if "editor_initialized" not in st.session_state:
     today = date.today()
-    # 기본 조회 기간: 현재 연도의 1월 1일부터 오늘까지
-    st.session_state.editor_start_date = today.replace(month=1, day=1)
+    # 데이터 로직용 상태
+    st.session_state.editor_start_date = today.replace(day=1)
     st.session_state.editor_end_date = today
-    # 기본 선택 필터: 모든 거래 유형, 은행/카드 종류
     st.session_state.editor_selected_types = ["EXPENSE", "INCOME", "INVEST", "TRANSFER"]
     st.session_state.editor_selected_cat = ["BANK", "CARD"]
+
+    # 위젯 표시용 상태 (데이터 상태와 동일하게 초기화)
+    st.session_state.widget_start_date = st.session_state.editor_start_date
+    st.session_state.widget_end_date = st.session_state.editor_end_date
+    st.session_state.widget_selected_types = st.session_state.editor_selected_types
+    st.session_state.widget_selected_cat = st.session_state.editor_selected_cat
+
     load_data()  # 초기 데이터 로드
-    st.session_state.editor_initialized = True  # 초기화 플래그 설정
+    st.session_state.editor_initialized = True
+
+
+def sync_state_and_reload():
+    """위젯의 상태를 데이터 상태로 동기화하고 데이터를 리로드하는 콜백 함수"""
+    # 위젯 값을 데이터 로직용 상태에 복사
+    st.session_state.editor_start_date = st.session_state.widget_start_date
+    st.session_state.editor_end_date = st.session_state.widget_end_date
+    st.session_state.editor_selected_types = st.session_state.widget_selected_types
+    st.session_state.editor_selected_cat = st.session_state.widget_selected_cat
+
+    # 데이터 리로드
+    load_data()
 
 
 st.title("📝 거래 내역 상세 수정")  # 페이지 메인 제목
@@ -99,28 +117,35 @@ st.markdown("---")  # 구분선
 # 데이터 필터링을 위한 날짜 및 멀티셀렉트 위젯
 col1, col2, col3, col4 = st.columns([1, 1, 3, 2])  # 컬럼 레이아웃 정의
 with col1:
-    # 조회 시작일 입력 필드. 변경 시 load_data 함수 호출.
-    st.date_input("조회 시작일", key="editor_start_date", on_change=load_data)
+    st.date_input(
+        "조회 시작일",
+        value=st.session_state.editor_start_date,  # 표시될 값
+        key="widget_start_date",  # 위젯 고유 키
+        on_change=sync_state_and_reload,  # 콜백 함수
+    )
 with col2:
-    # 조회 종료일 입력 필드. 변경 시 load_data 함수 호출.
-    st.date_input("조회 종료일", key="editor_end_date", on_change=load_data)
+    st.date_input(
+        "조회 종료일",
+        value=st.session_state.editor_end_date,
+        key="widget_end_date",
+        on_change=sync_state_and_reload,
+    )
 with col3:
-    # 거래 구분 필터 멀티셀렉트. 변경 시 load_data 함수 호출.
     st.multiselect(
         "거래 구분 필터",
         options=["EXPENSE", "INCOME", "INVEST", "TRANSFER"],
-        key="editor_selected_types",
-        on_change=load_data,
+        default=st.session_state.editor_selected_types,  # 표시될 값
+        key="widget_selected_types",  # 위젯 고유 키
+        on_change=sync_state_and_reload,  # 콜백 함수
     )
 with col4:
-    # 종류 필터 멀티셀렉트. 변경 시 load_data 함수 호출.
     st.multiselect(
         "종류 필터",
         options=["BANK", "CARD"],
-        key="editor_selected_cat",
-        on_change=load_data,
+        default=st.session_state.editor_selected_cat,
+        key="widget_selected_cat",
+        on_change=sync_state_and_reload,
     )
-
 
 # 카테고리 및 거래처 정보 로드
 # 각 거래 유형별 카테고리 로드
