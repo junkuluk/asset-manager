@@ -612,6 +612,22 @@ def get_investment_accounts():
     return conn.query("SELECT * FROM accounts WHERE is_investment = true", ttl=0)
 
 
+def get_bank_accounts():
+    """
+    모든 투자 계좌 정보를 로드.
+
+    Returns:
+        pd.DataFrame: 투자 계좌 정보 데이터프레임.
+    """
+
+    conn = st.connection("supabase", type="sql")
+
+    # is_investment가 true인 계좌 조회
+    return conn.query(
+        "SELECT * FROM accounts WHERE account_type = 'BANK_ACCOUNT'", ttl=0
+    )
+
+
 def get_all_accounts_df():
     """
     모든 계좌 정보를 데이터프레임 형태로 로드하고, 자산/부채 및 투자/비투자 여부를 추가.

@@ -147,6 +147,9 @@ with col4:
         on_change=sync_state_and_reload,
     )
 
+
+content_search_term = st.text_input("내용으로 검색 (실시간 필터링)")
+
 # 카테고리 및 거래처 정보 로드
 # 각 거래 유형별 카테고리 로드
 expense_categories = get_all_categories(category_type="EXPENSE")
@@ -262,6 +265,7 @@ else:
                 "cellStyle": editable_cell_style,  # 수정 가능한 셀 스타일 적용
             },
         ],
+        "quickFilterText": content_search_term,
         "defaultColDef": {
             "sortable": True,
             "resizable": True,
