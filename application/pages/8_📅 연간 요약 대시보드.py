@@ -245,7 +245,7 @@ st.subheader(f"{selected_year}년 월말 자산 현황")  # 월말 자산 현황
 
 # 선택된 연도의 월말 자산 현황 데이터 로드
 asset_df = get_annual_asset_summary(selected_year)
-
+print(asset_df)
 
 # 자산 변동 내역이 없는 경우 정보 메시지 표시
 if asset_df.empty:
@@ -271,7 +271,10 @@ else:
     asset_df = asset_df.apply(pd.to_numeric, errors="coerce").fillna(0)
 
     # 3. 총 자산 행 추가 (모든 계좌의 합계)
-    asset_df.loc["총 자산"] = asset_df.sum()
+    debt_accounts = ["신한카드", "국민카드", "현대카드"]
+    asset_only_df = asset_df.drop(index=debt_accounts)
+    asset_df.loc["총 자산"] = asset_only_df.sum()
+    # asset_df.loc["총 자산"] = asset_df.sum()
 
     # --- 스타일링 함수 정의 ---
     def highlight_monthly_change(row):

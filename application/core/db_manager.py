@@ -448,7 +448,7 @@ def reclassify_expense(transaction_id: int, linked_account_id: int):
             # 연결될 계좌의 유형 및 투자 계좌 여부 조회
             linked_account_info = s.execute(
                 text(
-                    "SELECT account_type, is_investment FROM accounts WHERE id = :lid"
+                    "SELECT account_type, is_investment, is_asset FROM accounts WHERE id = :lid"
                 ),
                 {"lid": linked_account_id},
             ).first()
@@ -458,7 +458,7 @@ def reclassify_expense(transaction_id: int, linked_account_id: int):
                 return False, "거래 또는 대상 계좌 정보를 찾을 수 없습니다."
 
             amount, transaction_date, current_type = trans_info
-            _, is_investment = linked_account_info
+            _, is_investment, is_asset = linked_account_info
 
             # 현재 거래 유형이 'EXPENSE'가 아니면 재분류 불가
             if current_type != "EXPENSE":
@@ -468,8 +468,8 @@ def reclassify_expense(transaction_id: int, linked_account_id: int):
                 )
 
             # 연결될 계좌가 투자 계좌인지에 따라 새로운 유형 및 카테고리 코드 결정
-            new_type = "INVEST" if is_investment else "TRANSFER"
-            category_code = "INVESTMENT" if is_investment else "CARD_PAYMENT"
+            new_type = "INVEST" if is_asset else "TRANSFER"
+            category_code = "INVESTMENT" if is_asset else "CARD_PAYMENT"
 
             # 새로운 카테고리 ID 조회
             new_category_id = s.execute(
