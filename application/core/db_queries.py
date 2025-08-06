@@ -74,6 +74,31 @@ def load_data_from_db(
     return df
 
 
+def load_all_categories():
+
+    conn = st.connection("supabase", type="sql")
+    income_query = """
+    SELECT DISTINCT c.description
+    FROM transaction t
+    JOIN category c ON t.category_id = c.id
+    WHERE t.type = 'INCOME'
+    ORDER BY c.description;
+    """
+    expense_query = """
+    SELECT DISTINCT c.description
+    FROM transaction t
+    JOIN category c ON t.category_id = c.id
+    WHERE t.type = 'EXPENSE'
+    ORDER BY c.description;
+    """
+
+    # conn.query를 사용하고 ttl=0으로 캐시 비활성화
+    income_df = conn.query(income_query, ttl=0)
+    expense_df = conn.query(expense_query, ttl=0)
+
+    return income_df["description"].tolist(), expense_df["description"].tolist()
+
+
 def get_all_categories(
     category_type: Optional[str] = None, include_top_level: bool = False
 ):
@@ -394,54 +419,70 @@ def get_all_categories_with_hierarchy():
     return df
 
 
-def load_income_expense_summary(start_date, end_date):
-    """
-    지정된 기간 동안 월별 수입 및 지출 요약을 로드.
+def load_income_expense_summary(start_date, end_date, excluded_categories=None):
 
-    Args:
-        start_date (str): 조회 시작일.
-        end_date (str): 조회 종료일.
+    if excluded_categories is None:
+        excluded_categories = []
 
-    Returns:
-        pd.DataFrame: '연월', '수입', '지출' 컬럼을 포함하는 데이터프레임.
-    """
+    params = {"start_date": start_date, "end_date": end_date}
 
     conn = st.connection("supabase", type="sql")
+
+    exclude_clause = ""
+    if excluded_categories:
+        exclude_clause = (
+            "AND c.description NOT IN (SELECT unnest(:excluded_categories))"
+        )
+        params["excluded_categories"] = excluded_categories
+
     # 월별 수입 및 지출을 집계하는 SQL 쿼리
-    query = """
+    query = f"""
+        WITH filtered_transactions AS (
+            SELECT
+                to_char(transaction_date, 'YYYY/MM') as "연월",
+                t.type,
+                t.transaction_amount
+            FROM transaction t
+            JOIN category c ON t.category_id = c.id
+            WHERE t.transaction_date::date BETWEEN :start_date AND :end_date AND type IN ('INCOME', 'EXPENSE')
+            {exclude_clause}
+        )    
         SELECT 
-            to_char(transaction_date, 'YYYY/MM') as "연월",
+            "연월",
             SUM(CASE WHEN type = 'INCOME' THEN transaction_amount ELSE 0 END) as "수입",
             SUM(CASE WHEN type = 'EXPENSE' THEN transaction_amount ELSE 0 END) as "지출"
-        FROM "transaction"
-        WHERE transaction_date::date BETWEEN :start_date AND :end_date AND type IN ('INCOME', 'EXPENSE')
+        FROM filtered_transactions        
         GROUP BY "연월"
-        ORDER BY "연월"
+        ORDER BY "연월";
     """
 
     # 쿼리 실행 및 결과 반환
-    return conn.query(
-        query, params={"start_date": start_date, "end_date": end_date}, ttl=0
-    )
+    return conn.query(query, params=params, ttl=0)
 
 
-def load_monthly_category_summary(start_date, end_date, transaction_type):
-    """
-    지정된 기간 동안 월별 카테고리별 요약을 로드.
-    최하위 카테고리(부모가 없는 카테고리) 기준으로 집계.
+def load_monthly_category_summary(
+    start_date, end_date, transaction_type, excluded_categories=None
+):
 
-    Args:
-        start_date (str): 조회 시작일.
-        end_date (str): 조회 종료일.
-        transaction_type (str): 필터링할 거래 유형.
+    if excluded_categories is None:
+        excluded_categories = []
 
-    Returns:
-        pd.DataFrame: '연월', '카테고리', '금액' 컬럼을 포함하는 데이터프레임.
-    """
+    params = {
+        "start_date": start_date,
+        "end_date": end_date,
+        "transaction_type": transaction_type,
+    }
+
+    exclude_clause = ""
+    if excluded_categories:
+        exclude_clause = (
+            "AND c.description NOT IN (SELECT unnest(:excluded_categories))"
+        )
+        params["excluded_categories"] = excluded_categories
 
     conn = st.connection("supabase", type="sql")
     # 월별 카테고리별 금액을 집계하는 SQL 쿼리 (최하위 카테고리 제외)
-    query = """
+    query = f"""
         SELECT 
             to_char(t.transaction_date, 'YYYY/MM') as "연월",
             c.description as "카테고리",
@@ -451,6 +492,7 @@ def load_monthly_category_summary(start_date, end_date, transaction_type):
         JOIN "category" c ON t.category_id = c.id
         WHERE t.type = :transaction_type AND t.transaction_date::date BETWEEN :start_date AND :end_date
           AND c.id NOT IN (SELECT DISTINCT parent_id FROM category WHERE parent_id IS NOT NULL) -- 부모 카테고리가 아닌 (최하위) 카테고리만 포함
+          {exclude_clause}
         GROUP BY "연월", "카테고리", "카테고리패스"
         ORDER BY "연월", "카테고리패스", "금액" DESC
     """
@@ -458,11 +500,7 @@ def load_monthly_category_summary(start_date, end_date, transaction_type):
     # 쿼리 실행 및 결과 반환
     return conn.query(
         query,
-        params={
-            "transaction_type": transaction_type,
-            "start_date": start_date,
-            "end_date": end_date,
-        },
+        params=params,
         ttl=0,
     )
 
