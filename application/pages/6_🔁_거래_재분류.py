@@ -96,7 +96,7 @@ candidate_df = get_bank_expense_transactions(
     str(st.session_state.reclassify_end_date),
 )
 
-exclude_keywords = ["신한체"]
+exclude_keywords = ["신한체", "체크카드"]
 
 condition_to_exclude = candidate_df["summary_content"].str.contains(
     "|".join(exclude_keywords), na=False
