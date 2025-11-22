@@ -205,6 +205,34 @@
       }
     ]
   },
+
+  {
+    "description": "똑강이 보험",
+    "priority": 1,
+    "category_code": "DDOK_GANG_INSURANCE",
+    "conditions": [
+      { "column": "bank_content", "match_type": "CONTAINS", "value": "현대" },
+      {
+        "column": "transaction_amount",
+        "match_type": "EQUALS",
+        "value": "19460"
+      }
+    ]
+  },
+  {
+    "description": "똑강이 보험",
+    "priority": 1,
+    "category_code": "DDOK_GANG_INSURANCE",
+    "conditions": [
+      { "column": "bank_content", "match_type": "CONTAINS", "value": "현대" },
+      {
+        "column": "transaction_amount",
+        "match_type": "EQUALS",
+        "value": "79940"
+      }
+    ]
+  },
+
   {
     "description": "혜인 보험",
     "priority": 1,

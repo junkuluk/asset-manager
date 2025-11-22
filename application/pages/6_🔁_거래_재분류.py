@@ -96,7 +96,20 @@ candidate_df = get_bank_expense_transactions(
     str(st.session_state.reclassify_end_date),
 )
 
-exclude_keywords = ["신한체", "체크카드"]
+
+exclude_keywords = ["신한체", "체크카드", "CMS지급", "CM보험", "FB보험", "CMS지"]
+with st.expander("ℹ️ 자동 필더링 항목 보기"):
+    st.markdown(
+        """        
+        - 미분류 항목이 아닌 건들이 필터링 대상입니다.
+        - **신한체**:  은행계좌에서 빠져나간 체크카드 항목은 이체로 변경하지 않도록 자동 필터링됩니다.
+        - **체크카드**:  은행계좌에서 빠져나간 체크카드 항목은 이체로 변경하지 않도록 자동 필터링됩니다.    
+        - **CMS지급**:  은행계좌에서 빠져나간 "CMS지급" 내용은 보험 지출임으로 이체로 변경하지 않도록 자동 필터링됩니다.
+        - **CMS지**:  은행계좌에서 빠져나간 "CMS지" 내용은 보험 지출임으로 이체로 변경하지 않도록 자동 필터링됩니다.
+        - **CM보험**:  은행계좌에서 빠져나간 "CMS지급" 내용은 보험 지출임으로 이체로 변경하지 않도록 자동 필터링됩니다.
+        - **FB보험**:  은행계좌에서 빠져나간 "FB보험" 내용은 보험 지출임으로 이체로 변경하지 않도록 자동 필터링됩니다.
+        """
+    )
 
 condition_to_exclude = candidate_df["summary_content"].str.contains(
     "|".join(exclude_keywords), na=False

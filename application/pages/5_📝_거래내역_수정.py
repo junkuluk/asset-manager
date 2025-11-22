@@ -147,6 +147,14 @@ with col4:
         on_change=sync_state_and_reload,
     )
 
+with st.expander("ℹ️ 자주 사용하는 검색어 보기"):
+    st.markdown(
+        """
+        검색창에 아래 단어를 입력하여 빠르게 내역을 조회해보세요.
+        
+        - **DB**: 
+        """
+    )
 
 content_search_term = st.text_input("내용으로 검색 (실시간 필터링)")
 

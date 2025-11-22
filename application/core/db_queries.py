@@ -581,6 +581,7 @@ def get_bank_expense_transactions(start_date, end_date):
         FROM "transaction"
         WHERE type = 'EXPENSE' AND transaction_type = 'BANK'
           AND transaction_date::date BETWEEN :start_date AND :end_date
+          AND category_id = 56
         ORDER BY transaction_date DESC
     """
 
