@@ -1,0 +1,30 @@
+server:
+  port: 8080
+
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/asset_manager}
+    username: ${DB_USER:postgres}
+    password: ${DB_PASSWORD:postgres}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+
+# 단일 사용자 간단 로그인 (환경변수로 비밀번호 설정)
+app:
+  auth:
+    username: ${APP_USER:admin}
+    password: ${APP_PASSWORD:admin1234}
+  cors:
+    allowed-origin: ${FRONTEND_ORIGIN:http://localhost:5173}
+
+logging:
+  level:
+    org.hibernate.SQL: info

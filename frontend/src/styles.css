@@ -1,0 +1,88 @@
+:root {
+  --bg: #f5f6f8;
+  --panel: #ffffff;
+  --border: #e3e6ea;
+  --text: #1f2933;
+  --muted: #7b8794;
+  --primary: #2563eb;
+  --income: #16a34a;
+  --expense: #dc2626;
+  --invest: #9333ea;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: "Pretendard", -apple-system, "Malgun Gothic", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.layout { display: flex; min-height: 100vh; }
+
+.sidebar {
+  width: 220px;
+  background: var(--panel);
+  border-right: 1px solid var(--border);
+  padding: 24px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.sidebar h1 { font-size: 20px; margin: 0 0 24px; }
+.sidebar nav { display: flex; flex-direction: column; gap: 4px; flex: 1; }
+.sidebar nav a {
+  padding: 10px 12px;
+  border-radius: 8px;
+  text-decoration: none;
+  color: var(--text);
+  font-size: 15px;
+}
+.sidebar nav a:hover { background: var(--bg); }
+.sidebar nav a.active { background: var(--primary); color: #fff; }
+.logout {
+  margin-top: auto;
+  padding: 10px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.content { flex: 1; padding: 32px; max-width: 1100px; }
+.content h2 { margin-top: 0; }
+
+.card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 24px;
+}
+
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th, td { padding: 10px 8px; text-align: left; border-bottom: 1px solid var(--border); }
+th { color: var(--muted); font-weight: 600; }
+.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+.tag { padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+.tag.INCOME { background: #dcfce7; color: var(--income); }
+.tag.EXPENSE { background: #fee2e2; color: var(--expense); }
+.tag.TRANSFER { background: #e5e7eb; color: #4b5563; }
+.tag.INVEST { background: #f3e8ff; color: var(--invest); }
+
+select, input, button { font-size: 14px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; }
+button.primary { background: var(--primary); color: #fff; border: none; cursor: pointer; }
+.row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+
+.login-wrap { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+.login-box { width: 320px; }
+.login-box input { width: 100%; margin-bottom: 12px; }
+.login-box button { width: 100%; }
+.error { color: var(--expense); font-size: 14px; margin: 8px 0; }
+.muted { color: var(--muted); }
+.kpi { display: flex; gap: 16px; flex-wrap: wrap; }
+.kpi .card { flex: 1; min-width: 160px; }
+.kpi .label { color: var(--muted); font-size: 13px; }
+.kpi .value { font-size: 22px; font-weight: 700; margin-top: 4px; }
